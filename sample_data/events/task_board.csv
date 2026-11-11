@@ -1,0 +1,7 @@
+task,owner,status,due,note
+Deploy pipeline,Rahul,In progress,2026-11-20,Moving to the new server
+Server migration,Rahul,Not started,2026-11-30,
+Database backups,Rahul,Not started,2026-12-02,
+Reminder emails,Meera,Not started,2026-11-25,
+Event budget report,,Not started,2026-12-01,
+Payment gateway,Anita,Blocked,2026-12-05,Waiting on the merchant account
