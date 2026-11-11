@@ -1,0 +1,4 @@
+task,owner,status,due,note
+Document exception review steps,Mina,In progress,2026-12-11,Synthetic process notes
+Test repeated-file protection,,Not started,2026-12-15,Use sample data only
+Confirm month-end approval route,,Blocked,2026-12-19,Waiting for policy clarification
