@@ -1,0 +1,4 @@
+task,owner,status,due,note
+Publish weekly triage checklist,Alex,In progress,2026-12-09,Synthetic example
+Confirm backup inventory owner,,Not started,2026-12-13,Needs assignment
+Close sample repair work order,Jordan,Blocked,2026-12-18,Waiting for delivery window
