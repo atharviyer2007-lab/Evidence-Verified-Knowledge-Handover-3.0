@@ -1,0 +1,5 @@
+<form method="get" action="/project/{{ project.id }}/search" class="search" role="search">
+  <label class="visually-hidden" for="q">Search this project</label>
+  <input id="q" name="q" type="search" placeholder="Search claims" value="{{ query_text|default('') }}" minlength="2" maxlength="100" required>
+  <button class="btn ghost small" type="submit">Search</button>
+</form>

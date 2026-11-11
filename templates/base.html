@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Handover{% endblock %} | Handover</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;800&display=swap" rel="stylesheet">
+  <script src="/static/theme.js"></script>
+  <link rel="stylesheet" href="/static/style.css?v=20261110-evidence-cards">
+</head>
+<body data-role="{{ user.role if user else 'guest' }}" data-start-tour="{{ 'true' if start_tour else 'false' }}">
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="bar">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="30" height="30"><path d="M7 5.5h12.5L25 11v15.5H7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.5 5.5V11H25M11 16h10M11 20h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m20.5 22 2 2 4-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span>Handover</span>
+    </a>
+    <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="Open navigation menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>Menu</span></button>
+    <nav id="main-nav" aria-label="Main">
+      {% if user %}
+        <a href="/workspace"{% if path == '/workspace' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h6v6H4zM14 5.5h6v6h-6zM4 15.5h6v3H4zM14 15.5h6v3h-6z"/></svg><span>Projects</span></a>
+        {% if user.role == 'reviewer' %}<a href="/teams"{% if path == '/teams' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.3"/><path d="M3.5 19c.5-3 2.3-4.5 5.5-4.5s5 1.5 5.5 4.5M15 14.5c2.8-.3 4.7 1.2 5.2 3.7"/></svg><span>Teams &amp; requests</span></a><a href="/activity"{% if path == '/activity' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18V9M12 18V5M19 18v-7M3 18.5h18"/></svg><span>Activity</span></a>
+        {% else %}<a href="/opportunities"{% if path == '/opportunities' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h16v12H4zM7 7.5V5h10v2.5M4 12h16M10 12v2h4v-2"/></svg><span>Project library</span></a><a href="/my-team"{% if path == '/my-team' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 19c.7-3.2 3-5 7-5s6.3 1.8 7 5"/></svg><span>My team</span></a>{% endif %}
+        <a href="/help"{% if path == '/help' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.3a2.5 2.5 0 1 1 4.1 1.9c-1 .8-1.8 1.2-1.8 2.5M12 17.2h.01"/></svg><span>Help</span></a>
+        <a class="bell" href="/notifications" aria-label="Notifications, {{ unread }} unread"{% if path == '/notifications' %} aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 22a2.4 2.4 0 002.4-2.4h-4.8A2.4 2.4 0 0012 22zm7-6.5V11a7 7 0 00-5-6.7V3.5a2 2 0 10-4 0v.8A7 7 0 005 11v4.5L3 17.5V19h18v-1.5l-2-2z" fill="currentColor"/></svg>
+          {% if unread %}<span class="badge">{{ unread }}</span>{% endif %}
+        </a>
+        <button class="icon" id="theme" type="button" aria-label="Switch between light and dark colours">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z" fill="currentColor"/></svg>
+        </button>
+        <form method="post" action="/logout">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="quiet" type="submit">Sign out</button>
+        </form>
+      {% else %}
+        <a href="/help">Help</a>
+        <button class="icon" id="theme" type="button" aria-label="Switch between light and dark colours">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z" fill="currentColor"/></svg>
+        </button>
+        <a class="btn small" href="/login">Sign in</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main id="main">
+    {% for kind, message in flashes %}<div class="toast {{ kind }}" role="status">{{ message }}</div>{% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+  {% if user and tour_prompt %}
+  <dialog class="welcome-tour" id="welcome-tour" data-open="true" aria-labelledby="welcome-title" aria-describedby="welcome-description">
+    <h2 id="welcome-title">Welcome, {{ user.display_name }}.</h2>
+    {% if user.role == 'reviewer' %}
+    <p id="welcome-description">Want a quick tour of the reviewer workflow? We’ll show you how to start a project, review evidence and manage successor-team requests.</p>
+    {% else %}
+    <p id="welcome-description">Want a quick tour of the successor workflow? We’ll show you how to find a project, request it, and work with your team after approval.</p>
+    {% endif %}
+    <form method="post" action="/tour-choice" class="stack">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label class="tour-check"><input type="checkbox" name="do_not_ask_again" value="true"> Don’t ask again on this account</label>
+      <div class="acts">
+        <button class="btn" type="submit" name="choice" value="start">Start the tour</button>
+        <button class="btn ghost" type="submit" name="choice" value="later">Not now</button>
+      </div>
+    </form>
+    <p class="muted small">You can restart a page tour any time from Help &amp; tour.</p>
+  </dialog>
+  {% endif %}
+  <button class="helpfab" id="help-open" type="button" aria-expanded="false" aria-controls="help-panel"><svg class="fab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.3a2.5 2.5 0 1 1 4.1 1.9c-1 .8-1.8 1.2-1.8 2.5M12 17.2h.01"/></svg><span>Help &amp; tour</span></button>
+  <aside class="helppanel" id="help-panel" role="dialog" aria-labelledby="help-title" hidden>
+    <h2 id="help-title">Quick help</h2>
+    {% block help %}<p>Use the menu at the top to move around. The full guide is on the <a href="/help">Help page</a>.</p>{% endblock %}
+    <div class="acts">
+      <a class="btn ghost small" href="/help">Open the full guide</a>
+      <button class="btn small" id="tour-start" type="button" hidden>Tour this page</button>
+      <button class="btn ghost small" id="help-close" type="button">Close</button>
+    </div>
+  </aside>
+  <script src="/static/app.js?v=20261110-final-motion" defer></script>
+</body>
+</html>

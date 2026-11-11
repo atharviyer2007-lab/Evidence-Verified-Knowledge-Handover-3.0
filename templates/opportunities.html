@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Project library{% endblock %}
+{% block content %}
+<h1>Successor project library</h1>
+<p class="lede">Compare projects by sector, scope, useful skills, expected outcome, and current status. These are reviewer-approved public briefs. Raw sources, claim details, and reviewer notes stay private until one specific team is assigned.</p>
+{% if not team %}<p class="empty">Your account is not attached to a team yet. Ask a reviewer to help set one up.</p>{% endif %}
+<form method="get" action="/opportunities" class="stack wide" data-tour="Search the published project briefs, then narrow the list to a sector that matches your team’s skills.">
+  <label>Search project briefs
+    <input type="search" name="q" value="{{ search_text }}" placeholder="e.g. clinic, reconciliation, security">
+  </label>
+  <label>Industry or work area
+    <select name="category">
+      <option value="">All sectors</option>
+      {% for category in categories %}<option value="{{ category }}" {{ 'selected' if selected_category == category }}>{{ category }}</option>{% endfor %}
+    </select>
+  </label>
+  <div class="acts"><button class="btn small" type="submit">Find projects</button><a class="btn ghost small" href="/opportunities">Clear filters</a></div>
+</form>
+{% if projects %}
+<p class="meta">Showing {{ projects|length }} of {{ total_projects }} published project{{ '' if total_projects == 1 else 's' }}.</p>
+<div class="cards">
+{% for p in projects %}
+  {% set r = request_by_project.get(p.id) %}
+  <article class="card"{% if loop.first %} data-tour="Each listing gives you the safe project brief and a live status. Only one successor team can hold an active assignment at a time."{% endif %}>
+    <p class="meta"><span class="chip">{{ p.category }}</span> <strong>{{ p.library_status }}</strong></p>
+    <h2>{{ p.name }}</h2>
+    <p><strong>Overview:</strong> {{ p.public_summary }}</p>
+    <p><strong>Work scope:</strong> {{ p.public_scope or 'The reviewer has not added scope details yet.' }}</p>
+    <p><strong>Useful skills:</strong> {{ p.public_skills or 'Not specified.' }}</p>
+    <p><strong>Expected outcome:</strong> {{ p.public_outcome or 'Not specified.' }}</p>
+    <p class="meta">{{ p.open_items }} open review/work item{{ '' if p.open_items == 1 else 's' }} · {{ p.approved_items }} approved evidence item{{ '' if p.approved_items == 1 else 's' }}</p>
+    {% if p.assigned_to_team and p.action_items %}<p class="meta">Your team’s plan actions: {{ p.action_done }} of {{ p.action_items }} marked done.</p>{% endif %}
+    {% if p.assigned_to_team and p.team_share_active and r and r.status == 'approved' %}
+      <p class="state approved">Assigned exclusively to your team until {{ r.reviewed_at or 'reviewer expiry' }}</p>
+      {% if p.library_status.startswith('Completed') %}<p class="note">Reviewer feedback: {{ r.reviewer_feedback or 'No additional note.' }}</p>{% endif %}
+      <a class="btn small" href="/project/{{ p.id }}/plan">Open your team’s approved plan</a>
+    {% elif p.assigned_to_team and p.team_share_active %}
+      <a class="btn small" href="/project/{{ p.id }}/plan">Open your team’s approved plan</a>
+    {% elif p.assigned_to_team %}
+      <p class="note">This project was assigned to your team, but its time-limited plan access has ended. Ask the reviewer for renewed access.</p>
+    {% elif p.assigned_elsewhere %}
+      <p class="note">This project is assigned to another successor team. It cannot be requested or opened by your group.</p>
+    {% elif r and r.status == 'pending' %}
+      <p class="state">Your request is awaiting reviewer decision.</p>
+    {% elif p.can_request and team %}
+      <form method="post" action="/project/{{ p.id }}/request" class="stack">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label>What can your team contribute? <textarea name="note" rows="2" maxlength="1000"></textarea></label>
+        <button class="btn small" type="submit">Request this project</button>
+      </form>
+      {% if r and r.reviewer_feedback %}<p class="note">Previous reviewer feedback: {{ r.reviewer_feedback }}</p>{% endif %}
+    {% else %}
+      {% if r and r.reviewer_feedback %}<p class="note">Reviewer feedback: {{ r.reviewer_feedback }}</p>{% endif %}
+      <p class="muted">This listing is for information only right now; it is not available to request.</p>
+    {% endif %}
+  </article>
+{% endfor %}
+</div>
+{% elif has_projects %}
+<p class="empty">No projects match those filters. Try another sector or search term, or <a href="/opportunities">clear filters</a>.</p>
+{% else %}
+<p class="empty">No projects are published in the library yet. Check back later or ask a reviewer.</p>
+{% endif %}
+{% endblock %}
+{% block help %}<p>Use the public brief to understand the work before requesting it. One team owns an active assignment. After approval, that specific team can see the approved plan and submit completed work for reviewer feedback. Source files and private claims remain hidden to other groups.</p>{% endblock %}

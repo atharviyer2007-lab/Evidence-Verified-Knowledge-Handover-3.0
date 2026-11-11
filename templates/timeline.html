@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip %}
+{% block title %}Timeline{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% if stats %}{% include "_stepper.html" %}{% endif %}
+<h2>Timeline</h2>
+{% if stats %}
+<nav class="tabs" aria-label="Who is looking">
+  <a href="?" class="{{ 'active' if not previewing }}">Reviewer view</a>
+  <a href="?preview=successor" class="{{ 'active' if previewing }}">What the successor sees</a>
+</nav>
+{% endif %}
+{% if entries is none %}
+  <p class="empty">Nothing is shared with you for this project.</p>
+{% elif not entries %}
+  <p class="empty">No approved claim has a date written like 2026-11-20 in its source, so there is nothing to show yet.</p>
+{% else %}
+  <p class="muted">Approved claims that have a date in their source, oldest first.</p>
+  {% for date, items in entries %}
+  <section class="when">
+    <h3>{{ date }}</h3>
+    <ul class="plan">
+      {% for c in items %}
+      <li class="{{ c.grade|lower }}">
+        <p>{{ c.statement }}</p>
+        <p class="meta">{{ chip(c.grade, grade_help[c.grade]) }} <a href="/claim/{{ c.id }}/evidence">Source: {{ c.filename }}</a></p>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+{% endif %}
+<p><a href="/project/{{ project.id }}/plan{{ '?preview=successor' if previewing }}">Back to the plan</a></p>
+{% endblock %}
+{% block help %}<p>Claims are placed on the date written next to them in your files. Dates must look like 2026-11-20. Claims without a date are in the plan but not here.</p>{% endblock %}

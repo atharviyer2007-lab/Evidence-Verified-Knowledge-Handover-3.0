@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip %}
+{% block title %}Plan{% endblock %}
+{% block tour_id %}plan{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% if stats %}{% include "_stepper.html" %}{% endif %}
+{% if sections is none %}
+  <p class="empty">Nothing is shared with you for this project, or the access has ended. Ask the reviewer to share the plan again.</p>
+{% else %}
+  <h2>Handover plan</h2>
+  {% if stats %}
+  <nav class="tabs" aria-label="Who is looking">
+    <a href="?" class="{{ 'active' if not previewing }}"{% if not previewing %} aria-current="page"{% endif %}>Reviewer view</a>
+    <a href="?preview=successor" class="{{ 'active' if previewing }}"{% if previewing %} aria-current="page"{% endif %}>What the successor sees</a>
+  </nav>
+  {% endif %}
+  {% if previewing %}<p class="banner">Preview. Anything marked reviewers only is hidden here, exactly as it will be for the successor.</p>{% endif %}
+  <p class="muted">Every statement links to the words it came from. Labels show how well each one is backed.</p>
+  <p><a href="/project/{{ project.id }}/timeline{{ '?preview=successor' if previewing }}">See it as a timeline</a></p>
+  {% include "_search.html" %}
+  {% for title, items in sections %}
+  <section class="plan-section">
+    <h3>{{ title }}</h3>
+    <ul class="plan">
+      {% for c in items %}
+      <li class="{{ c.grade|lower }}" id="action-{{ c.id }}">
+        <p>{{ c.statement }}</p>
+        <p class="meta">{{ chip(c.grade, grade_help[c.grade]) }} <a href="/claim/{{ c.id }}/evidence">Source: {{ c.filename }}</a></p>
+        {% if c.note %}<p class="note">{{ c.note }}</p>{% endif %}
+        {% if tracker is not none and c.type == 'next_action' %}
+        {% set row = tracker.get(c.id) %}
+        <div class="acts noprint">
+          <form method="post" action="/project/{{ project.id }}/action/{{ c.id }}/done">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button class="btn ghost small" type="submit">{{ 'Mark as not done' if row and row.state == 'done' else 'Mark as done' }}</button>
+          </form>
+          {% if row and row.state == 'done' %}<span class="state approved">Done</span>
+          {% elif row and row.state == 'unclear' %}<span class="state rejected">Sent back, waiting for a reply</span>
+          {% elif row and row.state == 'answered' %}<span class="state approved">Answered: {{ row.reply }}</span>{% endif %}
+        </div>
+        {% if user and user.role == 'successor' and members %}
+        <form method="post" action="/project/{{ project.id }}/action/{{ c.id }}/assign-member" class="acts noprint">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <label>Assigned team member
+            <select name="member_name"><option value="">Unassigned</option>{% for m in members %}<option value="{{ m.name }}" {{ 'selected' if row and row.assignee == m.name }}>{{ m.name }}</option>{% endfor %}</select>
+          </label>
+          <button class="btn ghost small" type="submit">Save assignment</button>
+        </form>
+        {% elif row and row.assignee %}<p class="meta">Assigned to {{ row.assignee }}</p>{% endif %}
+        <details class="noprint">
+          <summary>Unclear? Send it back</summary>
+          <form method="post" action="/project/{{ project.id }}/action/{{ c.id }}/unclear" class="stack wide">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <label>What is unclear?<textarea name="note" rows="2" required></textarea></label>
+            <button class="btn small" type="submit">Send to the reviewer</button>
+          </form>
+        </details>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% else %}
+  <p class="empty">No claims have been approved yet.</p>
+  {% endfor %}
+  {% if recurring %}
+  <section class="plan-section">
+    <h3>Problems that keep coming up</h3>
+    <ul class="plan">
+      {% for g in recurring %}
+      <li class="risk">
+        <p>{{ g.term|capitalize }} appears in {{ g.claims|length }} approved claims from different files.</p>
+        {% for c in g.claims %}<p class="meta"><span>{{ c.statement }}</span> <a href="/claim/{{ c.id }}/evidence">Source: {{ c.filename }}</a></p>{% endfor %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+  <div class="acts noprint" data-tour="Download the plan as Excel, Word, CSV, XML or JSON, or print it.">
+    {% set q = '?preview=successor' if previewing else '' %}
+    <a class="btn ghost small" href="/project/{{ project.id }}/export.xlsx{{ q }}">Excel</a>
+    <a class="btn ghost small" href="/project/{{ project.id }}/export.docx{{ q }}">Word</a>
+    <a class="btn ghost small" href="/project/{{ project.id }}/export.csv{{ q }}">CSV</a>
+    <a class="btn ghost small" href="/project/{{ project.id }}/export.xml{{ q }}">XML</a>
+    <a class="btn ghost small" href="/project/{{ project.id }}/export.json{{ q }}">JSON</a>
+    <button class="btn ghost small" type="button" id="print">Print or save as PDF</button>
+  </div>
+  {% if share %}
+  {% if user and user.role == 'successor' %}
+  <section class="ack noprint" id="completion-submission" data-tour="When your assigned actions are done, submit a short completion report here. The reviewer must accept it or request changes with written feedback.">
+    <h3>Successor completion review</h3>
+    {% if submission and submission.status == 'accepted' %}
+      <p class="state approved">Reviewer accepted your completion on {{ submission.reviewed_at }} UTC.</p>
+      <p class="note"><strong>Reviewer feedback:</strong> {{ submission.reviewer_feedback }}</p>
+    {% elif submission and submission.status == 'submitted' %}
+      <p class="state">Your completion report was submitted on {{ submission.submitted_at }}. It is waiting for reviewer review.</p>
+      <p><strong>Your report:</strong> {{ submission.summary }}</p>
+    {% else %}
+      {% if submission and submission.status == 'changes_requested' %}
+        <p class="state rejected">Reviewer requested changes on {{ submission.reviewed_at }} UTC.</p>
+        <p class="note"><strong>Reviewer feedback:</strong> {{ submission.reviewer_feedback }}</p>
+      {% endif %}
+      <p>Plan actions marked done: <strong>{{ action_done }} of {{ action_total }}</strong>. All listed actions must be marked done before submission.</p>
+      <form method="post" action="/project/{{ project.id }}/submit" class="stack">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label>What did your team complete, what evidence did you check, and what remains?<textarea name="summary" rows="5" minlength="20" maxlength="1500" required placeholder="Summarize completed work and any remaining limitations.">{% if submission and submission.status == 'changes_requested' %}{{ submission.summary }}{% endif %}</textarea></label>
+        <button class="btn" type="submit">Submit completion for reviewer review</button>
+      </form>
+    {% endif %}
+  </section>
+  {% endif %}
+  <section class="ack noprint" data-tour="When you have finished reading, confirm it here so the reviewer knows.">
+    {% if share.acknowledged_at %}
+      <p class="state approved">You confirmed you have read this plan on {{ share.acknowledged_at }} UTC.</p>
+    {% else %}
+      <h3>Finished reading?</h3>
+      <form method="post" action="/project/{{ project.id }}/acknowledge">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">I have read this plan</button>
+      </form>
+    {% endif %}
+  </section>
+  {% endif %}
+{% endif %}
+{% endblock %}
+{% block help %}<p>This is your continuation plan. Start with <strong>Project state</strong> and <strong>Week-one actions</strong>. Click a source link to see the exact words each statement came from. Press <strong>I have read this plan</strong> when you are done.</p>{% endblock %}

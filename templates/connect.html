@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Add files{% endblock %}
+{% block tour_id %}connect{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% include "_stepper.html" %}
+<h2>Add a file</h2>
+<form method="post" action="/project/{{ project.id }}/connect" enctype="multipart/form-data" class="stack wide" data-tour="Choose a file and decide who may see it. Passwords and personal details are hidden for you.">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>File (.txt, .md, .csv or .json, up to 200 KB)<input type="file" name="file" accept=".txt,.md,.csv,.json" required></label>
+  <label>What kind of file is it?
+    <select name="source_type"><option>meeting notes</option><option>task board</option><option>chat</option><option>notes</option><option>repository</option></select>
+  </label>
+  <label>Who may see it?
+    <select name="level">
+      <option value="0">Anyone with the plan</option>
+      <option value="1" selected>Team members</option>
+      <option value="2">Reviewers only</option>
+    </select>
+  </label>
+  <button class="btn" type="submit">Add file</button>
+</form>
+<p class="muted small">Only upload files you are allowed to share. Passwords, keys, emails and phone numbers are hidden before anything is stored. Adding a file with the same name replaces the old one and flags any approved claims that no longer match it.</p>
+{% if sources %}
+<h2>Files in this project</h2>
+<ul class="rows">
+  {% for s in sources %}
+  <li>
+    <div><h3>{{ s.filename }}</h3><p class="muted">{{ s.source_type }}, visible to {{ ['anyone with the plan', 'team members', 'reviewers only'][s.access_rank] }}{% if s.masked_count %}, {{ s.masked_count }} sensitive item(s) hidden{% endif %}</p></div>
+  </li>
+  {% endfor %}
+</ul>
+<form method="post" action="/project/{{ project.id }}/analyse" data-confirm="{{ 'This replaces the claims found earlier, including your decisions. Continue?' if stats.claims else '' }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="btn" type="submit">{{ 'Find claims again' if stats.claims else 'Find claims in these files' }}</button>
+</form>
+{% else %}
+<p class="empty">No files yet. Add your first file above.</p>
+{% endif %}
+{% endblock %}
+{% block help %}<p>Add the notes, task lists and chat exports that describe the project. Choose who may see each file. Then press <strong>Find claims</strong>.</p>{% endblock %}

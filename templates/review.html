@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip %}
+{% block title %}Review{% endblock %}
+{% block tour_id %}review{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% include "_stepper.html" %}
+<h2>Review what was found</h2>
+<p class="muted"><a href="/project/{{ project.id }}/questions">See the questions for the person leaving</a></p>
+{% include "_search.html" %}
+<nav class="tabs" aria-label="Claim filters" data-tour="Switch between claims that still need a decision and the ones you finished.">
+  <a href="?tab=attention" class="{{ 'active' if tab == 'attention' }}"{% if tab == 'attention' %} aria-current="page"{% endif %}>Needs review ({{ stats.proposed }})</a>
+  <a href="?tab=approved" class="{{ 'active' if tab == 'approved' }}"{% if tab == 'approved' %} aria-current="page"{% endif %}>Approved ({{ stats.approved }})</a>
+  <a href="?tab=rejected" class="{{ 'active' if tab == 'rejected' }}"{% if tab == 'rejected' %} aria-current="page"{% endif %}>Rejected ({{ stats.claims - stats.proposed - stats.approved }})</a>
+  <a href="?tab=all" class="{{ 'active' if tab == 'all' }}"{% if tab == 'all' %} aria-current="page"{% endif %}>All ({{ stats.claims }})</a>
+</nav>
+{% if tab == 'attention' and stats.proposed %}
+<form method="post" action="/project/{{ project.id }}/approve-backed" class="bulk">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <p class="muted">The safest claims are listed last. Approve all the ones backed by their source in one go.</p>
+  <button class="btn ghost small" type="submit">Approve all backed claims</button>
+</form>
+{% endif %}
+{% for c in claims %}
+<article class="claim {{ c.grade|lower }}" id="claim-{{ c.id }}"{% if loop.first %} data-tour="Each row is something found in your files. The coloured label shows how well it is backed. Approve, reject or edit it here."{% endif %}>
+  <p class="kind">{{ labels[c.type] }}</p>
+  <p class="statement">{{ c.statement }}</p>
+  <p class="meta">
+    {{ chip(c.grade, grade_help[c.grade]) }}
+    <span>From {{ c.filename }}</span>
+    {% if c.access_rank > 0 %}<span class="lock">{{ levels[c.access_rank] }} only</span>{% endif %}
+    {% if c.quote %}<a href="/claim/{{ c.id }}/evidence">See the evidence</a>{% endif %}
+  </p>
+    {% if c.grade != 'Backed' %}<p class="hint">{{ grade_help[c.grade] }}{% if c.grade == 'Unknown' %} Record testimony from the person leaving or reject this gap; it cannot be approved as fact.{% endif %}</p>{% endif %}
+  {% if c.note %}<p class="note">{{ c.note }}</p>{% endif %}
+  {% if c.status != 'proposed' %}<p class="state {{ c.status }}">{{ c.status|capitalize }}</p>{% endif %}
+  <div class="acts">
+    {% if c.status == 'proposed' %}
+    <form method="post" action="/claim/{{ c.id }}/approve" class="inline">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="tab" value="{{ tab }}">
+      {% if c.grade == 'Conflicting' %}<input name="reason" placeholder="Which source do you trust, and why?" aria-label="Reason" required>{% endif %}
+      <button class="btn small" type="submit" {{ 'disabled' if c.grade in ('Inferred', 'Unknown') }}>Approve</button>
+    </form>
+    <form method="post" action="/claim/{{ c.id }}/reject">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="tab" value="{{ tab }}">
+      <button class="btn ghost small" type="submit">Reject</button>
+    </form>
+    {% endif %}
+    {% if c.versions > 1 %}
+    <form method="post" action="/claim/{{ c.id }}/undo">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="tab" value="{{ tab }}">
+      <button class="quiet" type="submit">Undo last change</button>
+    </form>
+    <a href="/claim/{{ c.id }}/history">History</a>
+    {% endif %}
+    {% if c.redoable %}
+    <form method="post" action="/claim/{{ c.id }}/redo">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="tab" value="{{ tab }}">
+      <button class="quiet" type="submit">Redo</button>
+    </form>
+    {% endif %}
+  </div>
+  <details>
+    <summary>Edit this claim</summary>
+    <form method="post" action="/claim/{{ c.id }}/edit" class="stack wide">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="tab" value="{{ tab }}">
+      <label>Statement<textarea name="statement" rows="2" required>{{ c.statement }}</textarea></label>
+      <label>Exact words from the source that prove it<textarea name="quote" rows="2">{{ c.quote }}</textarea></label>
+      <button class="btn small" type="submit">Save and check again</button>
+    </form>
+  </details>
+  {% if c.grade == 'Unknown' or c.type == 'open_question' %}
+  <details>
+    <summary>Add the answer from the person leaving</summary>
+    <form method="post" action="/claim/{{ c.id }}/answer" class="stack wide">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="tab" value="{{ tab }}">
+      <label>What did they say?<textarea name="text" rows="2" required></textarea></label>
+      <label>Who said it?<input name="who" placeholder="Name"></label>
+      <button class="btn small" type="submit">Save answer</button>
+    </form>
+  </details>
+  {% endif %}
+</article>
+{% else %}
+<p class="empty">{% if tab == 'attention' and stats.claims %}Every claim has a decision. <a href="/project/{{ project.id }}/share">Share the plan</a>.{% elif not stats.claims %}No claims yet. <a href="/project/{{ project.id }}/connect">Add files</a> and find claims first.{% else %}Nothing here.{% endif %}</p>
+{% endfor %}
+{% endblock %}
+{% block help %}
+<p>Each row is something Handover found in your files. The coloured label says how well it is backed.</p>
+<p><strong>Approve</strong> keeps it in the plan. <strong>Reject</strong> removes it. <strong>Edit</strong> lets you fix the wording or paste the exact words from the source.</p>
+<p>Guesses (Inferred) cannot be approved until the quote matches the source.</p>
+{% endblock %}

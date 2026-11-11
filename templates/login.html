@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<section class="narrow">
+  <h1>Sign in</h1>
+  <p class="muted">Pick a demo account to fill in the details, then press Sign in.</p>
+  <div class="demo">
+    <button type="button" class="btn ghost small" data-fill-user="reviewer" data-fill-pass="reviewer123">Use the reviewer account</button>
+    <button type="button" class="btn ghost small" data-fill-user="successor" data-fill-pass="successor123">Use the successor account</button>
+  </div>
+  <form method="post" action="/login" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Username<input id="username" name="username" autocomplete="username" required></label>
+    <label>Password<input id="password" name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn" type="submit">Sign in</button>
+  </form>
+  <p class="muted small">Need to register a successor team? <a href="/register">Register here</a>. Registration does not grant access until a reviewer assigns or shares a project with you.</p>
+  <p class="muted small">The reviewer prepares and approves the handover. The successor receives it and sees only what they are allowed to see.</p>
+</section>
+{% endblock %}
+{% block help %}<p>Use <strong>reviewer</strong> to add files and approve claims. Use <strong>successor</strong> to see the shared plan. Both buttons fill in the demo details for you.</p>{% endblock %}

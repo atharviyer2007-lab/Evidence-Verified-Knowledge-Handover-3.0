@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Help{% endblock %}
+{% block tour_id %}help{% endblock %}
+{% block content %}
+<h1>Handover help</h1>
+<p class="lede">Use the guide for your role. Page-level help is available from the bottom-right button, and you can restart a tour on any page that offers one.</p>
+{% if user and user.role == 'reviewer' %}
+<section class="start"><h2>Reviewer playbook</h2>
+<ol class="steps">
+  <li><strong>Start with a project.</strong> Load a synthetic demo from Projects or create a project of your own. Add notes, task lists or chat exports and choose the most restrictive visibility level that is appropriate for each file.</li>
+  <li><strong>Check the evidence.</strong> Open Review, inspect the quoted source passage, and edit, reject or approve claims. Conflicts need a reason. Inferred claims cannot be approved as facts; Unknowns must be answered as testimony or rejected as irrelevant.</li>
+  <li><strong>Resolve handover gaps.</strong> Read Questions and Continuity Rehearsal. Answer critical questions and make sure at least one supported claim is approved. The app blocks sharing while review or readiness prerequisites remain.</li>
+  <li><strong>Publish carefully.</strong> On the project page, choose a sector and write a public summary that contains no confidential details. Only its title, sector and summary appear on the successor board.</li>
+  <li><strong>Review the team.</strong> Open Teams &amp; requests, inspect the roster and the project request, then approve or decline with clear feedback. Approval shares the plan for the chosen expiry. You may instead create a demo team or directly assign a listed project.</li>
+  <li><strong>Follow through.</strong> Check the Share page for acknowledgement, “Unclear” questions and named action assignments. Revoke access if the handover should end early; use Activity to review recorded changes.</li>
+</ol></section>
+{% elif user and user.role == 'successor' %}
+<section class="start"><h2>Successor team playbook</h2>
+<ol class="steps">
+  <li><strong>Find relevant work.</strong> Open Incomplete projects. Search project names and summaries, or filter by Software, Healthcare, Banking &amp; Finance, Cybersecurity, Education, General Operations or Community &amp; Nonprofit.</li>
+  <li><strong>Request a project.</strong> Tell the reviewer what your team can contribute. A request is not approval: source files and plan details remain hidden while it is pending.</li>
+  <li><strong>Read the decision.</strong> Check My team for reviewer feedback, your roster and approved project assignments. If declined, use the feedback to decide whether to improve and request again.</li>
+  <li><strong>Use the plan safely.</strong> After approval, open the shared plan, review the approved items, acknowledge it, and assign actions to named roster members.</li>
+  <li><strong>Ask for help early.</strong> Mark actions done when completed. If an action is unclear, send it back with a specific note; the reviewer can reply on Share.</li>
+</ol></section>
+{% else %}
+<section class="start"><h2>Reviewer quick start</h2>
+<ol class="steps"><li>Load a demo or create a project and add files.</li><li>Review source-backed claims, resolve conflicts and Unknowns, then pass the readiness gate.</li><li>Publish a safe summary, review a successor-team request, and share only the reviewed plan.</li></ol></section>
+<section class="start"><h2>Successor quick start</h2>
+<ol class="steps"><li>Search or filter the incomplete-project board and request a project.</li><li>Wait for reviewer approval and read feedback in My team.</li><li>Use the approved plan, assign tasks and send unclear actions back with a note.</li></ol></section>
+{% endif %}
+
+<h2>What the evidence labels mean</h2>
+<dl class="defs">
+  {% for grade, text in grade_help.items() %}<dt><span class="chip {{ grade|lower }}">{{ grade }}</span></dt><dd>{{ text }}</dd>{% endfor %}
+</dl>
+<h2>More features</h2>
+<dl class="defs">
+  <dt>Timeline</dt><dd>On a shared plan, “See it as a timeline” orders dated approved claims. Restricted or unapproved facts are not shown to successors.</dd>
+  <dt>Questions and dark matter</dt><dd>Review’s Questions page collects missing information, repeated unexplained terms, recurring risks, and areas with concentrated ownership.</dd>
+  <dt>History and undo</dt><dd>Open History under a claim to review changes. Undo and redo are available to reviewers; a new change clears the redo path.</dd>
+  <dt>Replacing a file</dt><dd>Upload a file with the same name to replace it. Claims whose evidence no longer matches are sent back for review, and visibility cannot be lowered by re-uploading.</dd>
+  <dt>Readiness rehearsal</dt><dd>Estimates whether a successor’s likely questions can be answered from the approved claims they are allowed to see. Critical unresolved questions block sharing.</dd>
+  <dt>Downloads</dt><dd>Download Excel, Word, CSV, XML or JSON, or use Print to save a PDF. Exports contain only claims permitted for the current recipient.</dd>
+  <dt>Notifications and activity</dt><dd>The bell lists relevant updates. Reviewers can open Activity to see recorded actions.</dd>
+  <dt>Restart a tour</dt><dd>Open Help &amp; tour from a page and choose Tour this page. “Not now” on first sign-in asks again on a future sign-in; “Don’t ask again” stores that choice for this account.</dd>
+</dl>
+<h2>Common questions</h2>
+<h3>Why can I not approve a claim?</h3><p>Inferred guesses cannot be approved as facts. Edit them so the evidence matches, or reject them. Unknown claims need testimony or rejection; conflicting claims need a reason.</p>
+<h3>Why can I not share or approve a project request?</h3><p>All claims need a decision, at least one supported claim must be approved, and critical rehearsal questions must be answered. Follow the blocker links on the Share page, then try again.</p>
+<h3>Why can’t successors see the source files?</h3><p>Successors see only approved claims within their access level, after the reviewer approves a request or assigns a project. The public board contains only the reviewer-written title, sector and summary.</p>
+<h3>Where does the data go?</h3><p>Project data is stored in the app’s SQLite database. The optional AI helper is off unless configured; if enabled, source text may be sent to its configured provider. Do not use this demo for real patient, customer, financial-account or live security-incident data.</p>
+{% endblock %}
+{% block help %}<p>Choose the reviewer or successor playbook above. If you are stuck on a particular screen, this panel explains that page; choose <strong>Tour this page</strong> for a guided walkthrough.</p>{% endblock %}

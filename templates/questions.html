@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Questions{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% include "_stepper.html" %}
+<h2>Questions for the person leaving</h2>
+{% if items %}
+  <p class="muted">Ask these before they go. Answers can be saved on the Review page under "Add the answer from the person leaving".</p>
+  <ol class="rows questions">
+    {% for claim, question in items %}
+    <li><div><h3>{{ question }}</h3><p class="muted">From {{ claim.filename }}. <a href="/project/{{ project.id }}/review?tab=all#claim-{{ claim.id }}">Open the claim</a></p></div></li>
+    {% endfor %}
+  </ol>
+  <pre class="source" id="question-text" hidden>{% for claim, question in items %}{{ loop.index }}. {{ question }}
+{% endfor %}</pre>
+  <button class="btn ghost small" type="button" id="copy" data-target="question-text">Copy all questions</button>
+{% else %}
+  <p class="empty">Nothing is missing. Every decision has a reason and every task has an owner.</p>
+{% endif %}
+<h2>Where knowledge is concentrated</h2>
+{% if people %}
+  <p class="muted">How many of the recorded areas each person owns. A person who owns several may be hard to replace.</p>
+  <ul class="rows">
+    {% for p in people %}
+    <li>
+      <div class="grow">
+        <h3>{{ p.name }}{% if p.at_risk %} <span class="chip inferred">May be a single point of failure</span>{% endif %}</h3>
+        <p class="muted">Owns {{ p.count }} area{{ '' if p.count == 1 else 's' }} ({{ p.share }}%): {{ p.areas|join(', ') }}</p>
+        <div class="track" aria-hidden="true"><i class="fill" style="--w: {{ p.share }}%"></i></div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="empty">No owners are recorded yet.</p>
+{% endif %}
+<h2>Problems that keep coming up</h2>
+{% if recurring %}
+  <p class="muted">Risks and blockers that use the same words in more than one file.</p>
+  <ul class="rows">
+    {% for g in recurring %}
+    <li><div><h3>{{ g.term|capitalize }}</h3>{% for c in g.claims %}<p class="muted">{{ c.statement }} ({{ c.filename }})</p>{% endfor %}</div></li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="empty">No problem is described in more than one file.</p>
+{% endif %}
+<h2>Mentioned often, never explained or owned</h2>
+{% if terms %}
+  <p class="muted">These phrases appear in more than one file, but no one is recorded as owning them and no file explains them. A new person is likely to trip over them.</p>
+  <ul class="rows">
+    {% for t in terms %}
+    <li><div><h3>{{ t.term }}</h3><p class="muted">{{ t.mentions }} mentions in {{ t.sources|join(', ') }}</p></div></li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="empty">No phrase stands out.</p>
+{% endif %}
+{% endblock %}
+{% block help %}<p>The first list is everything missing from your files, written as questions you can send. The second list shows phrases the files keep using but never explain or give an owner. It is a guide, not a verdict, so use your judgement.</p>{% endblock %}

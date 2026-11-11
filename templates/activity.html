@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Activity{% endblock %}
+{% block content %}
+<h1>Activity</h1>
+<p class="muted">The latest 100 actions, newest first. Times are in UTC.</p>
+<ul class="rows log small-headings">
+  {% for e in entries %}
+  <li><div><h2>{{ e.action|capitalize }}</h2><p class="muted">{{ e.user }}{% if e.detail %}, {{ e.detail }}{% endif %}</p></div><time>{{ e.at }}</time></li>
+  {% else %}
+  <li class="empty">Nothing has happened yet.</li>
+  {% endfor %}
+</ul>
+{% endblock %}
+{% block help %}<p>Every sign-in, upload, approval and share is recorded here so you can see who did what and when.</p>{% endblock %}

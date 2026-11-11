@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Something went wrong{% endblock %}
+{% block content %}
+<section class="narrow">
+  <h1>{{ 'This page is not available' if code in (403, 404) else 'Something went wrong' }}</h1>
+  <p class="lede">{{ message }}</p>
+  <a class="btn" href="{{ '/workspace' if user else '/' }}">Go back to safety</a>
+</section>
+{% endblock %}

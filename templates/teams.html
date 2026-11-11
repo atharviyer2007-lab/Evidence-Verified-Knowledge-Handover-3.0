@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Reviewer project desk{% endblock %}
+{% block content %}
+<h1>Reviewer project desk</h1>
+<p class="lede">Handle each stage separately: review incoming requests, assign an available project, track its one owning team, then review the successor’s completion submission.</p>
+<nav class="links" aria-label="Reviewer desk sections">
+  <a href="#requests">Requests ({{ requests|length }})</a><a href="#assign">Assign a project</a>
+  <a href="#active-assignments">Active assignments ({{ active_assignments|length }})</a>
+  <a href="#submissions">Completion reviews ({{ submissions|length }})</a><a href="#completed">Completed</a><a href="#teams">Teams</a>
+</nav>
+
+<section id="requests" data-tour="Only pending team requests appear here. Open the reviewer project workspace, inspect the source and readiness, then approve or decline with meaningful feedback.">
+  <h2>1. Requested projects — review incoming requests</h2>
+  {% for r in requests %}
+    <article class="card"><p class="meta"><span class="chip">{{ r.category }}</span> <strong>Request pending</strong></p>
+      <h3>{{ r.team_name }} → <a href="/project/{{ r.project_id }}">{{ r.project_name }}</a></h3>
+      <p>{{ r.leader_name }} · requested {{ r.requested_at }}</p>
+      <p><strong>Team’s reason:</strong> {{ r.request_note or 'No note from the team.' }}</p>
+      <p><strong>Public project brief:</strong> {{ r.public_summary }}</p>
+      <p><strong>Scope:</strong> {{ r.public_scope }}</p>
+      <p><strong>Expected outcome:</strong> {{ r.public_outcome }}</p>
+      <p><a href="/project/{{ r.project_id }}">Review project, claims and blockers</a></p>
+      <form method="post" action="/teams/request/{{ r.id }}" class="stack">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label>Feedback for the team<textarea name="feedback" rows="3" maxlength="3000" required placeholder="Explain what is ready, missing, or why you declined."></textarea></label>
+        <label>If approved, access expires<select name="days"><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option></select></label>
+        <div class="acts"><button class="btn small" name="decision" value="approve">Approve request and assign exclusively</button><button class="btn ghost small" name="decision" value="decline">Decline with feedback</button></div>
+      </form>
+    </article>
+  {% else %}<p class="empty">No pending project requests. New requests will appear here.</p>{% endfor %}
+</section>
+
+<section id="assign" data-tour="Use this separate form for a reviewer-initiated assignment. Projects already owned by a successor team are excluded; a project has only one active owning group.">
+  <h2>2. Assign a project directly</h2>
+  {% if projects and groups %}
+  <form method="post" action="/teams/assign" class="stack wide">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Successor team<select name="team_id" required>{% for t in groups %}<option value="{{ t.id }}">{{ t.name }} — {{ t.leader_name }} ({{ t.members|length }} members)</option>{% endfor %}</select></label>
+    <label>Available project<select name="project_id" required>{% for p in projects %}<option value="{{ p.id }}">{{ p.category }} — {{ p.name }}</option>{% endfor %}</select></label>
+    <label>Assignment brief for the team<textarea name="feedback" rows="3" maxlength="3000" required placeholder="Why this team, what should they begin with, and what should they return for review?"></textarea></label>
+    <label>Access expires<select name="days"><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option></select></label>
+    <button class="btn" type="submit">Assign project exclusively to this team</button>
+  </form>
+  {% elif not groups %}<p class="empty">Create or register a successor team before assigning work.</p>
+  {% else %}<p class="empty">No currently available incomplete projects. Publish a safe project brief or wait until an assignment expires or is revoked.</p>{% endif %}
+</section>
+
+<section id="active-assignments" data-tour="This is the ownership and progress register. Each listed project has exactly one assigned team; expiry, task progress, and successor submission status are shown here.">
+  <h2>3. Active project assignments</h2>
+  {% for a in active_assignments %}
+    <article class="card"><p class="meta"><span class="chip">{{ a.category }}</span> <strong>{{ a.submission_status|replace('_', ' ')|capitalize if a.submission_status else 'In progress' }}</strong></p>
+      <h3><a href="/project/{{ a.project_id }}">{{ a.project_name }}</a></h3>
+      <p><strong>Exclusive owner:</strong> {{ a.team_name }} · team lead {{ a.leader_name }}</p>
+      <p>{{ a.public_summary }}</p>
+      <p class="meta">Plan actions marked done: {{ a.action_done }} of {{ a.action_total }} · Access expires {{ a.expires_at }} UTC</p>
+      {% if a.submission_status == 'submitted' %}<p class="state">Successor completion submitted on {{ a.submitted_at }}; review it below.</p>{% endif %}
+      <a href="/project/{{ a.project_id }}/share">Open share, acknowledgement and sent-back actions</a>
+    </article>
+  {% else %}<p class="empty">No active assignments. Projects submitted directly from the request section appear here after approval.</p>{% endfor %}
+</section>
+
+<section id="submissions" data-tour="Successor completion notes are reviewed here. Read their report, then accept or request changes with a specific written explanation.">
+  <h2>4. Successor work submitted — reviewer decision needed</h2>
+  {% for s in submissions %}
+    <article class="card"><p class="meta"><span class="chip">{{ s.category }}</span> Submitted {{ s.submitted_at }}</p>
+      <h3>{{ s.project_name }} · {{ s.team_name }}</h3>
+      <p><strong>Team lead:</strong> {{ s.leader_name }}</p>
+      <p><strong>Successor completion report:</strong> {{ s.summary }}</p>
+      <a href="/project/{{ s.project_id }}/share">Inspect plan progress and handover history</a>
+      <form method="post" action="/submissions/{{ s.id }}/review" class="stack">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label>Reviewer feedback (required for either decision)<textarea name="feedback" rows="3" minlength="10" maxlength="3000" required placeholder="What did you verify? If changes are needed, list what is missing."></textarea></label>
+        <div class="acts"><button class="btn small" name="decision" value="accept">Accept completion</button><button class="btn ghost small" name="decision" value="changes">Request changes</button></div>
+      </form>
+    </article>
+  {% else %}<p class="empty">No successor completion submissions are waiting for review.</p>{% endfor %}
+</section>
+
+<section id="completed">
+  <h2>5. Completed and reviewer-accepted handovers</h2>
+  {% for a in completed_assignments %}
+    <article class="card"><p class="meta"><span class="chip">{{ a.category }}</span> <strong>Completed and accepted</strong></p>
+      <h3>{{ a.project_name }}</h3><p><strong>Owning team:</strong> {{ a.team_name }} · {{ a.leader_name }}</p>
+      <p><strong>Successor report:</strong> {{ a.submission_summary }}</p>
+      <p class="note"><strong>Reviewer decision:</strong> {{ a.reviewer_feedback }} · {{ a.reviewed_at }} UTC</p>
+      <a href="/project/{{ a.project_id }}">Open project review record</a>
+    </article>
+  {% else %}<p class="empty">No completed handovers have been accepted yet.</p>{% endfor %}
+</section>
+
+<section id="teams" data-tour="Check the one-login group roster before assigning work. Only the team’s leader login receives access; named roster members can be assigned individual actions.">
+  <h2>6. Registered successor teams</h2>
+  <div class="cards">
+  {% for t in groups %}
+    <article class="card"><h3>{{ t.name }}</h3><p>{{ t.leader_name }} ({{ t.username }}) · {{ t.leader_job or 'Other' }}</p>
+      <p><strong>Roster ({{ t.members|length }}):</strong> {{ t.members|map(attribute='name')|join(', ') }}</p>
+    </article>
+  {% else %}<p class="empty">No successor teams registered yet.</p>{% endfor %}
+  </div>
+  <details><summary>Create a demo successor team</summary>
+    <p class="muted">Create one login for the team leader and enter each other member’s name. The password is hashed; arrange delivery securely.</p>
+    <form method="post" action="/teams/demo" class="stack">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>Team name<input name="team_name" maxlength="80" required></label>
+      <label>Team leader name<input name="display_name" maxlength="60" required></label>
+      <label>Job category<select name="job_title">{% for title in job_titles %}<option value="{{ title }}">{{ title }}</option>{% endfor %}</select></label>
+      <label>Total team size, including leader<input name="team_size" type="number" min="1" max="12" value="1" required></label>
+      <label>Other member names, one per line<textarea name="member_names" rows="3"></textarea></label>
+      <label>Username<input name="username" minlength="3" maxlength="30" required></label>
+      <label>Temporary password (12–128 characters)<input name="password" type="password" minlength="12" maxlength="128" required></label>
+      <button class="btn" type="submit">Create successor team</button>
+    </form>
+  </details>
+</section>
+
+<section id="demo-projects">
+  <h2>7. Load a sector demo into your reviewer workspace</h2>
+  <form method="post" action="/projects/demo" class="demo"><input type="hidden" name="csrf" value="{{ csrf }}">
+    {% for kind, demo in demos.items() %}<button class="btn ghost small" name="kind" value="{{ kind }}">{{ demo.category }}: {{ demo.title }}</button>{% endfor %}
+  </form>
+  <p class="muted">After loading, inspect claims and readiness. Publish a complete safe project brief from the project page before it appears in the library.</p>
+</section>
+{% endblock %}
+{% block help %}<p>Requests, direct assignments and successor completion reviews are intentionally separate. Only the named owning group receives a share; you must write feedback for a request decision and for a submitted completion. Revoke access or let it expire to release an unfinished assignment.</p>{% endblock %}

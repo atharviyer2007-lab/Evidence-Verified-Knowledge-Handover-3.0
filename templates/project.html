@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block tour_id %}project{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% include "_stepper.html" %}
+<section class="next" data-tour="This always shows the one thing to do next.">
+  <h2>What to do next</h2>
+  {% if not stats.sources %}
+    <p>Add the first file from this project.</p>
+    <a class="btn" href="/project/{{ project.id }}/connect">Add files</a>
+  {% elif not stats.claims %}
+    <p>Your files are ready. Let Handover find the claims in them.</p>
+    <form method="post" action="/project/{{ project.id }}/analyse"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Find claims</button></form>
+  {% elif stats.proposed %}
+    <p>{{ stats.proposed }} claim{{ '' if stats.proposed == 1 else 's' }} still need your decision.</p>
+    <a class="btn" href="/project/{{ project.id }}/review">Review claims</a>
+  {% elif not stats.shared %}
+    <p>Everything is reviewed. Share the plan with the person taking over.</p>
+    <a class="btn" href="/project/{{ project.id }}/share">Share the plan</a>
+  {% else %}
+    <p>The plan is shared. You can check who has read it.</p>
+    <a class="btn" href="/project/{{ project.id }}/share">See who has read it</a>
+  {% endif %}
+</section>
+{% include "_search.html" %}
+<ul class="links">
+  <li><a href="/project/{{ project.id }}/questions">Questions for the person leaving</a></li>
+  <li><a href="/project/{{ project.id }}/rehearsal">Readiness rehearsal</a></li>
+</ul>
+{% if bars %}
+<section>
+  <h2>How well the claims are backed</h2>
+  <ul class="bars">
+    {% for grade, count, percent in bars %}
+    <li><span>{{ grade }}</span><div class="track"><i class="fill {{ grade|lower }}" style="--w: {{ percent }}%"></i></div><b>{{ count }}</b></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+<section class="your-data">
+  <h2>Successor project directory</h2>
+  <p class="muted">Write a useful, safe project brief: successors can see these fields and a live workflow status. Source files, claim details and reviewer notes remain private until one team is assigned.</p>
+  <form method="post" action="/project/{{ project.id }}/opportunities" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="inline"><input type="checkbox" name="enabled" value="true" {{ 'checked' if project.listing_enabled }}> List this project for successor teams</label>
+    <label>Project category
+      <select name="category">{% for category in categories %}<option value="{{ category }}" {{ 'selected' if project.category == category }}>{{ category }}</option>{% endfor %}</select>
+    </label>
+    <label>Public summary<textarea name="public_summary" rows="3" maxlength="500" placeholder="What is this project, and why does it need a successor?">{{ project.public_summary }}</textarea></label>
+    <label>Work scope<textarea name="public_scope" rows="3" maxlength="1200" placeholder="What should the successor team work on? Avoid confidential details.">{{ project.public_scope }}</textarea></label>
+    <label>Useful skills or experience<textarea name="public_skills" rows="2" maxlength="500" placeholder="Optional: e.g. data analysis, user research, documentation.">{{ project.public_skills }}</textarea></label>
+    <label>Expected outcome<textarea name="public_outcome" rows="2" maxlength="800" placeholder="What should the team hand back or complete?">{{ project.public_outcome }}</textarea></label>
+    <p class="hint">The project library automatically reports whether work is available, requested, assigned, awaiting review, or completed.</p>
+    <button class="btn ghost small" type="submit">Save directory listing</button>
+  </form>
+</section>
+<section class="your-data">
+  <h2>Your data</h2>
+  <p>Files are kept in the database on this computer, with passwords, keys, emails and phone numbers already hidden. Nothing leaves this computer unless you turn on the optional AI helper.</p>
+  <form method="post" action="/project/{{ project.id }}/delete" data-confirm="Delete this project and everything in it? This cannot be undone.">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn ghost small" type="submit">Delete this project</button>
+  </form>
+</section>
+{% endblock %}
+{% block help %}<p>This page shows where the project stands and the one thing to do next. The four steps above show your progress.</p>{% endblock %}

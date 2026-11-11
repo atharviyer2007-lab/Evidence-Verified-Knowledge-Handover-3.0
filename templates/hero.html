@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Hand over the work{% endblock %}
+{% block content %}
+<section class="hero">
+  <canvas class="gradient-ascii" id="gradient-ascii" aria-hidden="true" data-colors="#1e3fd8,#f6f8ff,#a5d8ff,#38bdf8" data-shape="horizon" data-characters=" =+xX0S8#@" data-cell-size="18" data-density="0.8" data-glyph-opacity="0.85" data-glow="0.2" data-flicker="0.2" data-softness="0.5" data-flow="0.5" data-speed="1" data-gradient-opacity="0.9" data-grain="0.08" data-scramble-radius="0.1"></canvas>
+  <div class="hero-copy" data-animated-content data-distance="100" data-duration="0.8" data-stagger="0.08">
+    <h1 style="--reveal-order: 0">Hand over the work, not just the files.</h1>
+    <p class="lede" style="--reveal-order: 1">Upload your project notes. Handover shows what is proven, what is only a guess and what is missing, then shares a plan that each person is allowed to see.</p>
+    <div class="actions" style="--reveal-order: 2">
+      <a class="btn" href="/login">Try the demo project</a>
+      <a class="btn ghost" href="/help">How it works</a>
+    </div>
+  </div>
+  <div class="proof" aria-hidden="true" style="--reveal-order: 3">
+    <p class="line l1"><time datetime="{{ meeting_notes_iso }}">Meeting notes, {{ meeting_notes_date }}</time></p>
+    <p class="line l2"><span class="hl">We decided to move registrations to a single form because the old spreadsheet kept breaking.</span><span class="tag ok">Found in the notes</span></p>
+    <p class="line l3"><span class="ul">The team agreed to use the free hosting plan.</span><span class="tag warn">No reason recorded</span></p>
+    <p class="line l4"><span class="ul bad">Priya owns the deploy pipeline.</span><span class="tag bad">Task board says Rahul</span></p>
+  </div>
+</section>
+<section class="how">
+  <h2>Three steps from messy files to a plan you can trust</h2>
+  <ol class="steps">
+    <li><strong>Add your files.</strong> Notes, a task list, a chat export. Passwords and personal details are hidden automatically.</li>
+    <li><strong>Check the evidence.</strong> Every statement points to the exact words it came from. Guesses cannot be approved as facts.</li>
+    <li><strong>Share safely.</strong> The new owner gets a plan that only includes what they are allowed to see, and confirms they have read it.</li>
+  </ol>
+</section>
+{% endblock %}
+{% block help %}<p>This is the home page. Choose <strong>Sign in</strong> and use a demo account to try the product.</p>{% endblock %}

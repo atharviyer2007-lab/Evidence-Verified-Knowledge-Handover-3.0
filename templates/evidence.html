@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip %}
+{% block title %}Evidence{% endblock %}
+{% block content %}
+<h1>Where this came from</h1>
+<p class="statement big">{{ claim.statement }}</p>
+<p class="meta">{{ chip(claim.grade, grade_help[claim.grade]) }} <span>{{ source.filename }}, visible to {{ ['anyone with the plan', 'team members', 'reviewers only'][source.access_rank] }}</span></p>
+{% if not parts[1] %}<p class="banner">No matching passage was found in this file. {{ grade_help[claim.grade] }}</p>{% endif %}
+<pre class="source">{{ parts[0] }}<mark id="found">{{ parts[1] }}</mark>{{ parts[2] }}</pre>
+<button class="btn ghost small" type="button" id="back">Go back</button>
+{% endblock %}
+{% block help %}<p>The highlighted words are the exact passage the statement is based on. Sensitive details were hidden when the file was added.</p>{% endblock %}

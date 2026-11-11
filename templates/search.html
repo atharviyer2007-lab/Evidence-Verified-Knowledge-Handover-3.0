@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% if stats %}{% include "_stepper.html" %}{% endif %}
+<h2>Search</h2>
+{% include "_search.html" %}
+{% if results is none %}
+  <p class="muted">Type at least two letters. The search looks at statements, quotes and notes.</p>
+{% elif results %}
+  <p class="muted">{{ results|length }} result{{ '' if results|length == 1 else 's' }}{{ ', showing the first 50' if results|length == 50 }}.</p>
+  <ul class="rows">
+    {% for c in results %}
+    <li>
+      <div>
+        <h3>{{ c.statement }}</h3>
+        <p class="meta">{{ chip(c.grade, grade_help[c.grade]) }} <span>{{ labels[c.type] }}</span> <span>From {{ c.filename }}</span>{% if reviewer %} <span>{{ c.status|capitalize }}</span>{% endif %}{% if c.quote %} <a href="/claim/{{ c.id }}/evidence">See the evidence</a>{% endif %}</p>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="empty">Nothing matches that. Try a shorter word.</p>
+{% endif %}
+{% endblock %}
+{% block help %}<p>Search looks through claims. {% if reviewer %}You see every claim.{% else %}You see the approved claims you may read.{% endif %}</p>{% endblock %}

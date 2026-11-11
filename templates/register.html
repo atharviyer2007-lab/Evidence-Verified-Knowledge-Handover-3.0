@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Register a successor team{% endblock %}
+{% block content %}
+<section class="narrow">
+  <h1>Register a successor team</h1>
+  <p class="muted">One team-leader login represents the group. Reviewers can assign work to the named members. Job category is profile information only; choosing “Reviewer” does not grant reviewer access.</p>
+  <form method="post" action="/register" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Team name<input name="team_name" maxlength="80" required></label>
+    <label>Your name (team leader)<input name="display_name" autocomplete="name" maxlength="60" required></label>
+    <label>Your job category
+      <select name="job_title">{% for title in job_titles %}<option value="{{ title }}">{{ title }}</option>{% endfor %}</select>
+    </label>
+    <label>Total team size, including you<input name="team_size" type="number" min="1" max="12" value="1" required></label>
+    <label>Other team members, one name per line
+      <textarea name="member_names" rows="4" placeholder="Leave blank if you are working alone"></textarea>
+    </label>
+    <label>Username<input name="username" autocomplete="username" minlength="3" maxlength="30" pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,29}" required></label>
+    <label>Password (12–128 characters)<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+    <label>Confirm password<input name="confirm_password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+    <button class="btn" type="submit">Register team</button>
+  </form>
+  <p class="muted small">Already registered? <a href="/login">Sign in</a>.</p>
+</section>
+{% endblock %}
+{% block help %}<p>Registration creates one successor login for the team leader and stores the named roster. The reviewer can see the team, assign projects and divide actions among its members. Registration never grants access to project contents by itself.</p>{% endblock %}

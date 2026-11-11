@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<h1>Notifications</h1>
+{% if items %}
+  <form method="post" action="/notifications/read">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn ghost small" type="submit" {{ 'disabled' if not unread }}>Mark all as read</button>
+  </form>
+  <ul class="rows small-headings">
+    {% for n in items %}
+    <li>
+      <div>
+        <h2>{% if not n.is_read %}<span class="chip inferred">New</span> {% endif %}{{ n.message }}</h2>
+        <p class="muted">{{ n.created_at }} UTC</p>
+      </div>
+      {% if n.link %}<a class="btn ghost small" href="{{ n.link }}">Open</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="empty">Nothing yet. You will be told here when a plan is shared, read, or sent back.</p>
+{% endif %}
+{% endblock %}
+{% block help %}<p>You are told here when a plan is shared with you, a reply arrives, or a successor reads or sends something back.</p>{% endblock %}

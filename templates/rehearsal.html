@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Readiness rehearsal{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% include "_stepper.html" %}
+<h2>Readiness rehearsal</h2>
+{% if result.score is none %}
+  <p class="empty">No questions yet. Add files and find claims first.</p>
+{% else %}
+  <p class="lede"><strong>{{ result.score }}%</strong> of the {{ result.questions|length }} questions a successor is likely to ask can be answered from approved claims they are allowed to see.</p>
+  <div class="track" aria-hidden="true"><i class="fill" style="--w: {{ result.score }}%"></i></div>
+  <p class="muted">This is a rough guide, not proof. It checks whether approved, visible claims cover the questions your files raise. Fix the unanswered ones first.</p>
+  <ul class="gate questions-check">
+    {% for q in result.questions %}
+    <li class="{{ 'yes' if q.answered else 'no' }}"><span class="sr-only">{{ 'Can be answered: ' if q.answered else 'Cannot be answered: ' }}</span>{{ q.question }}{% if not q.answered %} <span class="muted">({{ q.reason }})</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+<p><a href="/project/{{ project.id }}/review">Back to review</a></p>
+{% endblock %}
+{% block help %}<p>The tool writes the questions a new person would ask and tries to answer each one using only approved claims the successor may see. Unanswered questions show why.</p>{% endblock %}

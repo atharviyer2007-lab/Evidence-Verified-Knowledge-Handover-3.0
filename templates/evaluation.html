@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Self-check{% endblock %}
+{% block content %}
+<h1>Self-check</h1>
+<p class="lede">Runs the full pipeline on each demo project, compares the result with a list of things that were planted in the files on purpose, then deletes the test project.</p>
+<form method="post" action="/evaluation">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="btn" type="submit">Run the self-check</button>
+</form>
+{% for r in results or [] %}
+<section class="plan-section">
+  <h2>{{ r.title }}</h2>
+  <ul class="gate">
+    <li class="{{ 'yes' if r.quotes[0] == r.quotes[1] else 'no' }}">Quoted words found in the source: {{ r.quotes[0] }} of {{ r.quotes[1] }} claims that cite a quote ({{ r.claims }} claims in total)</li>
+    {% for text, found in r.gaps %}<li class="{{ 'yes' if found else 'no' }}">Planted gap found: {{ text }}</li>{% endfor %}
+    {% for text, found in r.conflicts %}<li class="{{ 'yes' if found else 'no' }}">Planted conflict found: {{ text }}</li>{% endfor %}
+    <li class="{{ 'yes' if not r.leaks else 'no' }}">Restricted facts that reached the successor view: {{ r.leaks|length }} of {{ r.restricted_total }}{% if r.leaks %} ({{ r.leaks|join(', ') }}){% endif %}</li>
+    <li class="{{ 'yes' if not r.exposed else 'no' }}">Secrets stored in the database: {{ r.exposed|length }} of {{ r.secrets_total }}</li>
+  </ul>
+  <p class="muted">After approving every claim that is not a guess, the readiness rehearsal scores {{ r.rehearsal }}%.</p>
+</section>
+{% endfor %}
+{% if results %}<p class="muted">These checks run on made-up files whose problems we planted ourselves, so they show the pipeline works as designed. They do not measure accuracy on real notes. The classmate trial is still done by hand.</p>{% endif %}
+{% endblock %}
+{% block help %}<p>This runs automatically on the two demo projects. A tick means the check passed. Nothing from the test is kept.</p>{% endblock %}

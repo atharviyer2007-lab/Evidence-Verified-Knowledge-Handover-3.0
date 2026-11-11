@@ -1,0 +1,7 @@
+{% set done = (1 if stats.sources else 0) + (1 if stats.claims and not stats.proposed else 0) + (1 if stats.shared else 0) %}
+<ol class="path" aria-label="Progress" style="--p: {{ done * 33 }}%" data-tour="These four steps show your progress. Click any step to jump to it.">
+  <li class="{{ 'done' if stats.sources }} {{ 'now' if step == 'connect' }}"><a{% if step == 'connect' %} aria-current="step"{% endif %} href="/project/{{ project.id }}/connect"><span class="n">1</span>Add files</a></li>
+  <li class="{{ 'done' if stats.claims and not stats.proposed }} {{ 'now' if step == 'review' }}"><a{% if step == 'review' %} aria-current="step"{% endif %} href="/project/{{ project.id }}/review"><span class="n">2</span>Review</a></li>
+  <li class="{{ 'done' if stats.shared }} {{ 'now' if step == 'share' }}"><a{% if step == 'share' %} aria-current="step"{% endif %} href="/project/{{ project.id }}/share"><span class="n">3</span>Share</a></li>
+  <li class="{{ 'now' if step == 'plan' }}"><a{% if step == 'plan' %} aria-current="step"{% endif %} href="/project/{{ project.id }}/plan"><span class="n">4</span>Plan</a></li>
+</ol>

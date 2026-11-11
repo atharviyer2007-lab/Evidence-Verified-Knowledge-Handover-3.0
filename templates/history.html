@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip %}
+{% block title %}History{% endblock %}
+{% block content %}
+<h1>History of this claim</h1>
+<p class="statement big">{{ claim.statement }}</p>
+<ul class="rows small-headings">
+  {% for v in versions %}
+  <li>
+    <div>
+      <h2>{{ v.action|capitalize }}{% if v.undone %} <span class="state rejected">Undone</span>{% endif %}</h2>
+      <p>{{ v.statement }}</p>
+      <p class="meta">{{ chip(v.grade) }} <span>{{ v.status|capitalize }}</span> <span>by {{ v.by_user }}, {{ v.at }} UTC</span></p>
+      {% if v.note %}<p class="note">{{ v.note }}</p>{% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+<a class="btn ghost small" href="/project/{{ claim.project_id }}/review?tab=all#claim-{{ claim.id }}">Back to the claim</a>
+{% endblock %}
+{% block help %}<p>The newest change is at the top. Undo on the Review page steps back through this list one change at a time.</p>{% endblock %}

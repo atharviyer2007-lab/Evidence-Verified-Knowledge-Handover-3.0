@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}My team{% endblock %}
+{% block content %}
+<h1>My team{% if team %}: {{ team.name }}{% endif %}</h1>
+{% if team %}
+  <p class="muted">One team-leader login represents this roster. Reviewers can assign action items to named members.</p>
+  <section data-tour="This is the roster the reviewer sees. Task assignments in a shared plan use these names."><h2>Team roster</h2><ul class="plan">{% for m in members %}<li>{{ m.name }}{% if loop.first %} <span class="meta">(team login holder)</span>{% endif %}</li>{% endfor %}</ul></section>
+  <section><h2>Projects assigned to your team</h2>
+    {% for p in owned_projects %}
+      <article class="card"><p class="meta"><span class="chip">{{ p.category }}</span> <strong>{{ p.submission_status|replace('_', ' ')|capitalize if p.submission_status else ('Completed' if p.state == 'completed' else 'Assigned') }}</strong></p>
+        <h3>{{ p.project_name }}</h3>
+        <p><strong>Overview:</strong> {{ p.public_summary }}</p>
+        <p><strong>Scope:</strong> {{ p.public_scope }}</p>
+        <p><strong>Expected outcome:</strong> {{ p.public_outcome }}</p>
+        <p class="meta">Reviewer assignment expires: {{ p.expires_at or 'not available' }} UTC</p>
+        {% if p.assignment_feedback %}<p class="note"><strong>Reviewer assignment brief:</strong> {{ p.assignment_feedback }}</p>{% endif %}
+        {% if p.reviewer_feedback %}<p class="note"><strong>Completion review feedback:</strong> {{ p.reviewer_feedback }}</p>{% endif %}
+        {% if p.submission_summary %}<p><strong>Your last submission:</strong> {{ p.submission_summary }}</p>{% endif %}
+        {% if p.access_active %}<a class="btn small" href="/project/{{ p.project_id }}/plan">Open the approved plan and work</a>
+        {% else %}<p class="empty">Plan access has expired or was revoked. Ask the reviewer to renew it.</p>{% endif %}
+      </article>
+    {% else %}<p class="empty">No project has been assigned to your team. Browse the <a href="/opportunities">project library</a> to request available work.</p>{% endfor %}
+  </section>
+  <section><h2>Requests and reviewer decisions</h2>
+    {% for r in requests %}
+      <article class="card"><p class="meta"><span class="chip">{{ r.category }}</span> <strong>{{ r.status|capitalize }}</strong></p><h3>{{ r.project_name }}</h3>
+        <p>{{ r.public_summary }}</p>
+        {% if r.request_note %}<p><strong>Your request:</strong> {{ r.request_note }}</p>{% endif %}
+        {% if r.reviewer_feedback %}<p class="note"><strong>Reviewer feedback:</strong> {{ r.reviewer_feedback }}</p>{% endif %}
+      </article>
+    {% else %}<p class="empty">No pending or declined requests. New requests and decisions will appear here.</p>{% endfor %}
+  </section>
+  {% if assignments %}<section><h2>Tasks assigned to team members</h2><ul class="plan">{% for a in assignments %}<li><strong>{{ a.assignee }}</strong> — {{ a.statement }} <span class="meta">({{ a.project_name }}; {{ a.state }})</span></li>{% endfor %}</ul></section>{% endif %}
+{% else %}<p class="empty">No team roster is linked to this account. Contact the reviewer.</p>{% endif %}
+{% endblock %}
+{% block help %}<p>Requests, assignments and reviewer feedback are separate. A pending request does not grant access. Once assigned, open that project’s approved plan; finish its actions, then submit a short completion note for reviewer review. Only your group’s login can use the assignment.</p>{% endblock %}

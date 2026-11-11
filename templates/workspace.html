@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Projects{% endblock %}
+{% block tour_id %}workspace{% endblock %}
+{% block content %}
+<h1>Your projects</h1>
+{% if user.role == 'reviewer' %}
+<section class="start" data-tour="This is your reviewer checklist: load or create a project, check the source-backed claims, then approve and assign a successor team only when the handover is ready.">
+  <h2>Reviewer quick start</h2>
+  <ol class="steps">
+    <li>Choose a synthetic demo or create a project, then upload notes and task files.</li>
+    <li>Review the evidence, resolve Unknowns and conflicts, and run the readiness rehearsal.</li>
+    <li>Publish a safe summary, then review team requests or assign a team in <a href="/teams">Teams &amp; requests</a>.</li>
+  </ol>
+</section>
+{% else %}
+<section class="start" data-tour="This workspace contains plans a reviewer has already shared with your team. To discover other available work, browse the incomplete-project directory.">
+  <h2>Successor team starting point</h2>
+  <p>Pick an available project from <a class="btn small" href="/opportunities">Incomplete projects</a>, or open a plan already assigned to your team.</p>
+</section>
+{% endif %}
+{% if projects %}
+  <ul class="rows">
+    {% for p in projects %}
+    <li{% if loop.first %} data-tour="Open a project assigned to your account. Reviewers manage its evidence; successor teams see only the approved plan shared with them."{% endif %}>
+      <div>
+        <h2>{{ p.name }}</h2>
+        {% if user.role == 'reviewer' %}<p class="muted">{{ p.claims }} claims found, {{ p.approved }} approved</p>{% else %}<p class="muted">A plan was shared with you.</p>{% endif %}
+      </div>
+      <a class="btn small" href="{{ '/project/%d'|format(p.id) if user.role == 'reviewer' else '/project/%d/plan'|format(p.id) }}">Open</a>
+    </li>
+    {% endfor %}
+  </ul>
+{% elif user.role == 'reviewer' %}
+  <p class="empty" data-tour="Your project list is empty. Start with a safe synthetic example or create your own project below.">No projects yet. Load a demo project to see how everything works, or start your own below.</p>
+{% else %}
+  <p class="empty">Nothing has been shared with you yet. Browse incomplete projects to request a project, then check My team for reviewer feedback.</p>
+{% endif %}
+{% if user.role == 'reviewer' %}
+<section class="start">
+  <h2>Start a project</h2>
+  <form method="post" action="/projects/demo" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn" type="submit" name="kind" value="events" data-tour="Start with the software demo. Its files are synthetic, and its unfinished claims let you try the review workflow safely.">Load software demo</button>
+    <button class="btn ghost" type="submit" name="kind" value="club">Load community demo</button>
+  </form>
+  <details>
+    <summary>Choose another demo by sector</summary>
+    <form method="post" action="/projects/demo" class="demo">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {% for kind, demo in demos.items() if kind not in ('events', 'club') %}
+      <button class="btn ghost small" type="submit" name="kind" value="{{ kind }}">{{ demo.category }} demo</button>
+      {% endfor %}
+    </form>
+  </details>
+  <form method="post" action="/projects" class="inline" data-tour="Or create a real project, then upload its source notes and task files before asking Handover to find claims.">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="grow">Or start your own<input name="name" placeholder="Project name" maxlength="80" required></label>
+    <button class="btn ghost" type="submit">Create project</button>
+  </form>
+</section>
+<p class="muted" data-tour="Use the self-check to see whether the app finds known planted gaps in every synthetic demo."><a href="/evaluation">Run the self-check on the demo projects</a></p>
+{% else %}
+<p class="muted"><a href="/my-team">See your team roster and reviewer feedback</a></p>
+{% endif %}
+{% endblock %}
+{% block help %}
+{% if user.role == 'reviewer' %}<p>Reviewer flow: choose a demo or create a project, add files with the right visibility, inspect each claim’s evidence, resolve gaps and readiness blockers, then publish a safe summary and review requests in <a href="/teams">Teams &amp; requests</a>. Do not share until the server-side readiness gate passes.</p>
+{% else %}<p>Successor flow: filter the <a href="/opportunities">Incomplete projects</a> board by sector, request one with a short note, and check <a href="/my-team">My team</a> for the reviewer’s decision. After approval, read and acknowledge the plan and assign actions to named teammates.</p>{% endif %}
+{% endblock %}
