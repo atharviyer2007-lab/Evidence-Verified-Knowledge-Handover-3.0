@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+itsdangerous
+openpyxl
+python-docx
+pytest
+httpx

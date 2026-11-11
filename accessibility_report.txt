@@ -1,0 +1,25 @@
+Accessibility report
+Date: 2026-11-10
+
+Tool: axe-core (automated), run in a real Chromium browser against every page
+Rules: WCAG 2.0 A and AA, WCAG 2.1 A and AA, and axe best practices
+Themes: light and dark
+Pages: home, sign in, help, 404, projects, project overview, add files, review (two tabs), questions,
+readiness rehearsal, share, search, timeline, plan (reviewer view and successor preview), claim history,
+evidence, activity, notifications, self-check results, and the successor's projects, plan, timeline,
+search and notifications pages
+
+Found and fixed during this pass
+- Status labels (Backed, Inferred, Conflicting and others) were below the 4.5:1 contrast ratio in light mode.
+  Their colours were darkened. Every pair now measures at least 5.0:1.
+- Timeline date labels were below the contrast ratio in dark mode. They now use the theme text colour.
+- Three pages (Activity, Notifications, History) skipped a heading level. Fixed.
+
+Final result: no violations in light or dark mode on the pages above. No browser console errors.
+
+Also in place: a skip link, labelled forms and icon buttons, visible keyboard focus, aria-current on the active
+menu item, tab and step, a polite status role on messages, keyboard-closable help panel and tour (Escape),
+and reduced-motion support.
+
+Not covered: automated checks find only part of all accessibility problems. A screen-reader walkthrough and
+keyboard-only testing by a person have not been done.

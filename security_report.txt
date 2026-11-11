@@ -1,0 +1,31 @@
+Security scan report
+Date: 2026-11-10
+
+Command: bandit -r . -x ./tests
+Run started:2026-11-10 07:33:24.104451+00:00
+
+Test results:
+	No issues identified.
+
+Code scanned:
+	Total lines of code: 1294
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 0
+		Medium: 0
+		High: 0
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 0
+		Medium: 0
+		High: 0
+Files skipped (0):
+
+Command: pip-audit -r requirements.txt
+No known vulnerabilities found
+
+Not run: OWASP ZAP baseline scan against the running app (not available in this environment).
