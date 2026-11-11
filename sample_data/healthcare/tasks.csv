@@ -1,0 +1,4 @@
+task,owner,status,due,note
+Validate referral import mapping,Devin,In progress,2026-12-12,Synthetic test data only
+Assign backup referral-review owner,,Not started,2026-12-16,Confirm escalation role
+Test reminder retry behavior,Rowan,Blocked,2026-12-18,Waiting for interface mapping
