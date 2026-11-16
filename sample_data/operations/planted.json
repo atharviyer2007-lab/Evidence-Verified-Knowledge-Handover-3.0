@@ -1,1 +1,19 @@
-{"expected_gaps": ["Confirm backup inventory owner"], "expected_conflicts": [], "restricted": [], "secrets": []}
+{
+  "expected_gaps": [
+    "Confirm backup inventory owner"
+  ],
+  "expected_conflicts": [],
+  "restricted": [],
+  "secrets": [],
+  "expected_links": [
+    {
+      "kind": "person",
+      "name": "Alex",
+      "files": [
+        "operations_notes.md",
+        "overview.md",
+        "tasks.csv"
+      ]
+    }
+  ]
+}
