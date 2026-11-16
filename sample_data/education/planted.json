@@ -1,1 +1,19 @@
-{"expected_gaps": ["Assign backup facilitator"], "expected_conflicts": [], "restricted": [], "secrets": []}
+{
+  "expected_gaps": [
+    "Assign backup facilitator"
+  ],
+  "expected_conflicts": [],
+  "restricted": [],
+  "secrets": [],
+  "expected_links": [
+    {
+      "kind": "person",
+      "name": "Sam",
+      "files": [
+        "course_notes.md",
+        "overview.md",
+        "tasks.csv"
+      ]
+    }
+  ]
+}
