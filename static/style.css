@@ -47,7 +47,7 @@ h1 { font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 800; }
 h2 { font-size: 1.45rem; font-weight: 600; margin-top: 2.2rem; }
 h3 { font-size: 1.1rem; font-weight: 600; }
 p { margin: 0 0 0.7rem; max-width: 68ch; }
-a { color: var(--btn); text-underline-offset: 3px; }
+a { color: var(--teal-ink); text-underline-offset: 3px; }
 [data-theme="dark"] a { color: var(--teal); }
 :focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; border-radius: 4px; }
 .muted { color: var(--muted); }
@@ -403,7 +403,7 @@ main { background: #ffffff; box-shadow: 0 0 0 1px rgba(16, 35, 63, 0.025); }
 .how { padding-top: 0.8rem; }
 .steps li::marker, .how strong { color: #10233f; }
 .steps li::marker { color: #f20d6b; }
-.helpfab { background: #f20d6b; color: #fff; border-color: #f20d6b; }
+.helpfab { background: #d90b5e; color: #fff; border-color: #d90b5e; }
 @media (max-width: 760px) {
   .hero { margin-inline: -1rem; border-radius: 0 0 1.25rem 1.25rem; }
 }
@@ -940,3 +940,30 @@ main > section, main > form, main > .rows, main > .cards { animation-delay: 180m
 /* The hero is always present; only its field and child content animate. */
 body:has(.hero) main > .hero { animation: none !important; opacity: 1 !important; transform: none !important; }
 body:has(.hero) .hero-copy, body:has(.hero) .hero-copy > *, body:has(.hero) .proof { will-change: opacity, transform; }
+
+/* Round 3 */
+.bars.wide li { grid-template-columns: 13rem 1fr 2.2rem; }
+@media (max-width: 640px) { .bars.wide li { grid-template-columns: 8rem 1fr 2rem; } }
+.diff { margin: 0.2rem 0; }
+.diff-del { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); text-decoration: line-through; }
+.diff-ins { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); text-decoration: none; }
+.site-foot { max-width: 72rem; margin: 2rem auto 1rem; padding: 0 1.25rem; color: var(--muted, #667); font-size: 0.85rem; }
+.inline-form { display: inline; margin: 0; }
+.rows.interview .grow { flex: 1; }
+.scroll { overflow-x: auto; }
+table.grid { border-collapse: collapse; width: 100%; }
+table.grid th, table.grid td { text-align: left; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--line); }
+fieldset { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 1rem; padding: 0.8rem 1rem; display: grid; gap: 0.4rem; }
+legend { font-weight: 700; padding: 0 0.4rem; }
+ul.plain { padding-left: 1.2rem; }
+
+/* Round 3 accessibility fixes found by the browser pass.
+   1. The white link rule meant for the top bar also hit nav.tabs (review, plan and timeline tabs), which made the
+      tab labels white on a pale background in light mode.
+   2. Link-coloured summary text and the Backed chip were just under 4.5:1 on pale backgrounds. */
+nav.tabs a { color: var(--muted) !important; }
+nav.tabs a.active { color: var(--teal-ink) !important; }
+summary { color: var(--teal-ink); }
+:root:not([data-theme="dark"]) .chip.backed { color: #0e5f50; }
+fieldset label.inline { display: flex; align-items: center; gap: 0.65rem; font-weight: 500; }
+fieldset label.inline input[type="radio"] { flex: none; width: 1.15rem !important; min-width: 0 !important; height: 1.15rem; margin: 0; accent-color: var(--teal); }

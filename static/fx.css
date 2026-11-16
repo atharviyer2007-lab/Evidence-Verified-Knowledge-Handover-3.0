@@ -1,0 +1,125 @@
+/* Handover motion and polish layer. Everything here is decoration on top of working pages:
+   nothing is hidden until a script runs, every animation is off for people who ask for reduced motion,
+   and none of it changes text colours or contrast. */
+:root { --fx-spring: cubic-bezier(0.34, 1.56, 0.64, 1); --fx-brand: linear-gradient(90deg, #ff2f82, #ffb86b, #5ce1e6); }
+
+/* ---- keyboard fix: the closed phone menu must not be reachable by Tab ---- */
+@media (max-width: 760px) {
+  nav#main-nav:not(.is-open) {
+    visibility: hidden;
+    transition: max-height 0.35s var(--ease-out), opacity 0.25s ease, transform 0.35s var(--ease-out), visibility 0s linear 0.35s;
+  }
+  nav#main-nav.is-open { visibility: visible; }
+}
+
+/* ---- reading progress and navigation indicator ---- */
+.fx-progress {
+  position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 80; pointer-events: none;
+  background: var(--fx-brand); transform-origin: 0 50%; transform: scaleX(var(--p, 0)); transition: transform 0.12s linear;
+  box-shadow: 0 0 12px rgba(255, 47, 130, 0.55);
+}
+.fx-progress.is-loading { transform: none; background-size: 200% 100%; animation: fx-loading 0.9s linear infinite; }
+@keyframes fx-loading { to { background-position: -200% 0; } }
+
+/* ---- cursor spotlight on cards, rows and claims (mouse only) ---- */
+.fx-host { position: relative; }
+.fx-glow {
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 0.3s ease;
+  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--teal) 13%, transparent), transparent 65%);
+}
+.fx-host:hover > .fx-glow { opacity: 1; }
+
+/* ---- button ripple ---- */
+.fx-ripple {
+  position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; pointer-events: none;
+  background: currentColor; opacity: 0.28; transform: scale(0); animation: fx-ripple 0.65s ease-out forwards;
+}
+@keyframes fx-ripple { to { transform: scale(26); opacity: 0; } }
+
+/* ---- busy buttons: a spinner and no double submits ---- */
+.btn.is-busy { pointer-events: none; opacity: 0.85; }
+.fx-spinner {
+  display: inline-block; width: 0.9em; height: 0.9em; margin-right: 0.5em; vertical-align: -0.12em; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent; animation: fx-spin 0.7s linear infinite;
+}
+@keyframes fx-spin { to { transform: rotate(360deg); } }
+
+/* ---- meters get a slow shine once they have grown ---- */
+.fill { position: relative; }
+.fill::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+  transform: translateX(-100%); animation: fx-shine 3.2s ease-in-out 1.4s infinite;
+}
+@keyframes fx-shine { 55%, 100% { transform: translateX(100%); } }
+
+/* ---- scroll-driven entrance: movement only, never opacity, so text is always fully readable ---- */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rows > li, .claim, .bars li, table.grid tbody tr, main fieldset, .steps li {
+      animation: fx-rise linear both; animation-timeline: view(); animation-range: entry 0% entry 40%;
+    }
+  }
+}
+@keyframes fx-rise { from { transform: translateY(28px) scale(0.985); } to { transform: none; } }
+
+/* ---- table rows and tabs respond to the pointer ---- */
+table.grid tbody tr { transition: background 0.2s ease; }
+table.grid tbody tr:hover { background: color-mix(in srgb, var(--teal) 6%, transparent); }
+nav.tabs a { transition: color 0.2s ease, border-color 0.25s ease, background 0.2s ease; }
+nav.tabs a:hover { border-bottom-color: color-mix(in srgb, var(--teal) 55%, transparent); }
+
+/* ---- quiz: live progress, selected answers light up ---- */
+.fx-quiz-progress {
+  position: sticky; top: 4.3rem; z-index: 5; display: grid; gap: 0.35rem; padding: 0.6rem 0.9rem; margin-bottom: 0.4rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 22px rgba(16, 35, 63, 0.1);
+}
+.fx-quiz-progress span { font-weight: 700; }
+fieldset { transition: border-color 0.25s ease, box-shadow 0.25s ease; }
+fieldset:has(input:checked) { border-color: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 14%, transparent); }
+fieldset label.inline { padding: 0.3rem 0.55rem; border-radius: 0.6rem; transition: background 0.2s ease; cursor: pointer; }
+fieldset label.inline:hover { background: color-mix(in srgb, var(--teal) 7%, transparent); }
+fieldset label.inline:has(input:checked) { background: color-mix(in srgb, var(--teal) 12%, transparent); animation: fx-pick 0.35s var(--fx-spring); }
+@keyframes fx-pick { 40% { transform: scale(1.015); } }
+
+/* ---- confetti and back to top ---- */
+.fx-confetti { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 90; pointer-events: none; }
+.fx-top {
+  position: fixed; left: 1.2rem; bottom: 1.2rem; z-index: 45; width: 2.9rem; height: 2.9rem; display: grid; place-items: center;
+  border-radius: 50%; border: 2px solid var(--teal); background: var(--panel); color: var(--teal-ink); cursor: pointer;
+  box-shadow: 0 10px 24px rgba(16, 35, 63, 0.22); opacity: 0; transform: translateY(14px) scale(0.9); pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.3s var(--fx-spring), background 0.2s ease;
+}
+.fx-top.is-visible { opacity: 1; transform: none; pointer-events: auto; }
+.fx-top:hover { background: color-mix(in srgb, var(--teal) 10%, var(--panel)); }
+.fx-top svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- notifications and toasts ---- */
+.badge { animation: stamp 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) backwards, fx-ping 2.6s ease-out 1s infinite; }
+@keyframes fx-ping { 0% { box-shadow: 0 0 0 0 rgba(226, 38, 80, 0.55); } 70%, 100% { box-shadow: 0 0 0 9px rgba(226, 38, 80, 0); } }
+.toast::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0 0 12px 12px;
+  background: var(--teal); opacity: 0.55; transform-origin: left; animation: fx-count 5s linear forwards;
+}
+@keyframes fx-count { to { transform: scaleX(0); } }
+
+/* ---- hero parallax (mouse only) ---- */
+.hero .proof { translate: calc(var(--px, 0) * 12px) calc(var(--py, 0) * 8px); transition: translate 0.25s ease-out; }
+.hero .hero-copy { translate: calc(var(--px, 0) * -5px) calc(var(--py, 0) * -3px); transition: translate 0.25s ease-out; }
+
+/* ---- theme switch: a circular reveal where supported, a soft cross-fade elsewhere ---- */
+html.fx-vt-theme::view-transition-old(root), html.fx-vt-theme::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+html.fx-vt-theme::view-transition-new(root) { animation: fx-reveal 0.7s var(--ease-out) both; }
+@keyframes fx-reveal { from { clip-path: circle(0 at var(--tx, 50%) var(--ty, 0)); } to { clip-path: circle(150vmax at var(--tx, 50%) var(--ty, 0)); } }
+html.fx-themeing, html.fx-themeing * { transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease !important; }
+
+/* ---- page-level softness ---- */
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+/* ---- respect people who ask for less motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .fx-progress.is-loading, .fill::after, .fx-ripple, .badge, .toast::after, fieldset label.inline:has(input:checked),
+  .rows > li, .claim, .bars li, table.grid tbody tr, main fieldset, .steps li { animation: none !important; }
+  .fx-top, .fx-progress, .hero .proof, .hero .hero-copy { transition: none !important; translate: none !important; }
+}
+@media print { .fx-progress, .fx-top, .fx-glow, .fx-confetti, .fx-ripple, .fx-quiz-progress { display: none !important; } }
