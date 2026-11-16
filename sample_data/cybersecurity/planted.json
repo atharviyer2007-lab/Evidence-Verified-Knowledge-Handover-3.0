@@ -1,1 +1,19 @@
-{"expected_gaps": ["Document duplicate-alert closure"], "expected_conflicts": [], "restricted": [], "secrets": []}
+{
+  "expected_gaps": [
+    "Document duplicate-alert closure"
+  ],
+  "expected_conflicts": [],
+  "restricted": [],
+  "secrets": [],
+  "expected_links": [
+    {
+      "kind": "person",
+      "name": "Rowan",
+      "files": [
+        "overview.md",
+        "response_notes.md",
+        "tasks.csv"
+      ]
+    }
+  ]
+}
