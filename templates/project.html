@@ -27,13 +27,34 @@
 <ul class="links">
   <li><a href="/project/{{ project.id }}/questions">Questions for the person leaving</a></li>
   <li><a href="/project/{{ project.id }}/rehearsal">Readiness rehearsal</a></li>
+  <li><a href="/project/{{ project.id }}/interview">Leaver interview: give the person leaving their own login</a></li>
+  <li><a href="/project/{{ project.id }}/state">Project state: who owns what across files{% if link_flag_count %} ({{ link_flag_count }} cross-source check{{ '' if link_flag_count == 1 else 's' }}){% endif %}</a></li>
+  <li><a href="/project/{{ project.id }}/comprehension">Comprehension results</a></li>
 </ul>
 {% if bars %}
 <section>
   <h2>How well the claims are backed</h2>
   <ul class="bars">
     {% for grade, count, percent in bars %}
-    <li><span>{{ grade }}</span><div class="track"><i class="fill {{ grade|lower }}" style="--w: {{ percent }}%"></i></div><b>{{ count }}</b></li>
+    <li><span>{{ grade }}</span><div class="track"><i class="fill {{ grade|lower }}" style="--w: {{ percent }}%"></i></div><b data-countup>{{ count }}</b></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% if kind_bars %}
+<section>
+  <h2>What the claims are about</h2>
+  <ul class="bars wide">
+    {% for label, count, percent in kind_bars %}
+    <li><span>{{ label }}</span><div class="track"><i class="fill testimony" style="--w: {{ percent }}%"></i></div><b data-countup>{{ count }}</b></li>
+    {% endfor %}
+  </ul>
+</section>
+<section>
+  <h2>Open work and risk</h2>
+  <ul class="bars wide">
+    {% for label, count, percent in open_bars %}
+    <li><span>{{ label }}</span><div class="track"><i class="fill {{ 'conflicting' if label in ('Sources disagree', 'Risks and blockers') else 'inferred' }}" style="--w: {{ percent }}%"></i></div><b data-countup>{{ count }}</b></li>
     {% endfor %}
   </ul>
 </section>
@@ -57,7 +78,7 @@
 </section>
 <section class="your-data">
   <h2>Your data</h2>
-  <p>Files are kept in the database on this computer, with passwords, keys, emails and phone numbers already hidden. Nothing leaves this computer unless you turn on the optional AI helper.</p>
+  <p>Files are kept in this app's database, with passwords, keys, emails and phone numbers already hidden. They are sent to an AI service only if the optional AI helper is switched on for this server. <a href="/data-use">Read how your data is used</a>.</p>
   <form method="post" action="/project/{{ project.id }}/delete" data-confirm="Delete this project and everything in it? This cannot be undone.">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <button class="btn ghost small" type="submit">Delete this project</button>

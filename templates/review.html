@@ -8,6 +8,7 @@
 <h2>Review what was found</h2>
 <p class="muted"><a href="/project/{{ project.id }}/questions">See the questions for the person leaving</a></p>
 {% include "_search.html" %}
+{% set flags = link_flags %}{% include "_flags.html" %}
 <nav class="tabs" aria-label="Claim filters" data-tour="Switch between claims that still need a decision and the ones you finished.">
   <a href="?tab=attention" class="{{ 'active' if tab == 'attention' }}"{% if tab == 'attention' %} aria-current="page"{% endif %}>Needs review ({{ stats.proposed }})</a>
   <a href="?tab=approved" class="{{ 'active' if tab == 'approved' }}"{% if tab == 'approved' %} aria-current="page"{% endif %}>Approved ({{ stats.approved }})</a>
@@ -26,7 +27,7 @@
   <p class="kind">{{ labels[c.type] }}</p>
   <p class="statement">{{ c.statement }}</p>
   <p class="meta">
-    {{ chip(c.grade, grade_help[c.grade]) }}
+    {{ chip(c.grade, grade_help[c.grade]) }}{% if c.self_approved and c.status == 'approved' %} <span class="chip testimony" title="Written and approved by the same person, or the handover is marked solo.">self-approved</span>{% endif %}
     <span>From {{ c.filename }}</span>
     {% if c.access_rank > 0 %}<span class="lock">{{ levels[c.access_rank] }} only</span>{% endif %}
     {% if c.quote %}<a href="/claim/{{ c.id }}/evidence">See the evidence</a>{% endif %}

@@ -14,6 +14,7 @@
     <li class="{{ 'yes' if r.quotes[0] == r.quotes[1] else 'no' }}">Quoted words found in the source: {{ r.quotes[0] }} of {{ r.quotes[1] }} claims that cite a quote ({{ r.claims }} claims in total)</li>
     {% for text, found in r.gaps %}<li class="{{ 'yes' if found else 'no' }}">Planted gap found: {{ text }}</li>{% endfor %}
     {% for text, found in r.conflicts %}<li class="{{ 'yes' if found else 'no' }}">Planted conflict found: {{ text }}</li>{% endfor %}
+    {% for text, found in r.links %}<li class="{{ 'yes' if found else 'no' }}">Cross-source link found: {{ text }}</li>{% endfor %}
     <li class="{{ 'yes' if not r.leaks else 'no' }}">Restricted facts that reached the successor view: {{ r.leaks|length }} of {{ r.restricted_total }}{% if r.leaks %} ({{ r.leaks|join(', ') }}){% endif %}</li>
     <li class="{{ 'yes' if not r.exposed else 'no' }}">Secrets stored in the database: {{ r.exposed|length }} of {{ r.secrets_total }}</li>
   </ul>

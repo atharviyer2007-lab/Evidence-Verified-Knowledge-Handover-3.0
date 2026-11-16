@@ -7,7 +7,8 @@
     <h1 style="--reveal-order: 0">Hand over the work, not just the files.</h1>
     <p class="lede" style="--reveal-order: 1">Upload your project notes. Handover shows what is proven, what is only a guess and what is missing, then shares a plan that each person is allowed to see.</p>
     <div class="actions" style="--reveal-order: 2">
-      <a class="btn" href="/login">Try the demo project</a>
+      <form method="post" action="/demo/enter" class="inline-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="role" value="reviewer"><button class="btn" type="submit">Try the demo project</button></form>
+      <a class="btn ghost" href="/login">Sign in</a>
       <a class="btn ghost" href="/help">How it works</a>
     </div>
   </div>

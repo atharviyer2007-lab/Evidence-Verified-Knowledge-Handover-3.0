@@ -19,13 +19,14 @@
 {% endif %}
 <h2>Where knowledge is concentrated</h2>
 {% if people %}
-  <p class="muted">How many of the recorded areas each person owns. A person who owns several may be hard to replace.</p>
+  <p class="muted">How many areas each person owns from handover claims and, when available, repository author activity. A person who owns several may be hard to replace.</p>
   <ul class="rows">
     {% for p in people %}
     <li>
       <div class="grow">
         <h3>{{ p.name }}{% if p.at_risk %} <span class="chip inferred">May be a single point of failure</span>{% endif %}</h3>
         <p class="muted">Owns {{ p.count }} area{{ '' if p.count == 1 else 's' }} ({{ p.share }}%): {{ p.areas|join(', ') }}</p>
+        {% if p.repo_commits %}<p class="muted">Repository evidence: {{ p.repo_commits }} commit{{ '' if p.repo_commits == 1 else 's' }} across {{ p.repo_paths }} path{{ '' if p.repo_paths == 1 else 's' }} ({{ p.evidence }}).</p>{% endif %}
         <div class="track" aria-hidden="true"><i class="fill" style="--w: {{ p.share }}%"></i></div>
       </div>
     </li>

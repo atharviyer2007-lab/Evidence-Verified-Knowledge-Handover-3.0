@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Section checks{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+<h2>Check your understanding</h2>
+<p class="lede">Each section has a short check built from the plan itself. Score {{ pass_mark }}% or more to unlock acknowledgement for that section. You can try again, and a wrong answer shows the source passage.</p>
+<ul class="rows">
+  {% for s in statuses %}
+  <li><div><h3>{{ s.title }}</h3>
+    <p class="muted">{% if s.state == 'done' %}Acknowledged{% elif s.state == 'passed' %}Passed. Ready to acknowledge{% elif s.state == 'retry' %}Best so far {{ s.best[0] }} of {{ s.best[1] }}. Try again{% elif s.state == 'no_check' %}No check is available for this section{% else %}{{ s.questions }} question{{ '' if s.questions == 1 else 's' }}, not started{% endif %}</p></div>
+    <a class="btn ghost small" href="/project/{{ project.id }}/check/{{ s.index }}">{{ 'Review' if s.state == 'done' else 'Open' }}</a></li>
+  {% endfor %}
+</ul>
+<p><a href="/project/{{ project.id }}/plan">Back to the plan</a>{% if done %} &middot; <strong data-celebrate>every section is acknowledged</strong>{% endif %}</p>
+{% endblock %}

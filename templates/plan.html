@@ -17,7 +17,8 @@
   {% endif %}
   {% if previewing %}<p class="banner">Preview. Anything marked reviewers only is hidden here, exactly as it will be for the successor.</p>{% endif %}
   <p class="muted">Every statement links to the words it came from. Labels show how well each one is backed.</p>
-  <p><a href="/project/{{ project.id }}/timeline{{ '?preview=successor' if previewing }}">See it as a timeline</a></p>
+  <p><a href="/project/{{ project.id }}/timeline{{ '?preview=successor' if previewing }}">See it as a timeline</a> &middot; <a href="/project/{{ project.id }}/state{{ '?preview=successor' if previewing }}">Project state: who owns what</a>{% if user and user.role == 'successor' and share %} &middot; <a href="/project/{{ project.id }}/check">Section checks</a>{% endif %}</p>
+  {% if user and user.role == 'successor' and share and ack_total %}<p class="banner">Check your understanding: {{ ack_done }} of {{ ack_total }} sections acknowledged.</p>{% endif %}
   {% include "_search.html" %}
   {% for title, items in sections %}
   <section class="plan-section">
@@ -26,7 +27,7 @@
       {% for c in items %}
       <li class="{{ c.grade|lower }}" id="action-{{ c.id }}">
         <p>{{ c.statement }}</p>
-        <p class="meta">{{ chip(c.grade, grade_help[c.grade]) }} <a href="/claim/{{ c.id }}/evidence">Source: {{ c.filename }}</a></p>
+        <p class="meta">{{ chip(c.grade, grade_help[c.grade]) }} <a href="/claim/{{ c.id }}/evidence">Source: {{ c.filename }}</a>{% if c.self_approved %} <span class="chip testimony" title="The same person wrote and approved this, or the handover is marked solo.">self-approved</span>{% endif %}</p>
         {% if c.note %}<p class="note">{{ c.note }}</p>{% endif %}
         {% if tracker is not none and c.type == 'next_action' %}
         {% set row = tracker.get(c.id) %}
@@ -60,6 +61,16 @@
       </li>
       {% endfor %}
     </ul>
+    {% set st = section_state.get(title) if section_state else none %}
+    {% if st %}
+    <p class="meta noprint">
+      {% if st.state == 'done' %}<span class="state approved">Section acknowledged</span>
+      {% elif st.state == 'passed' %}<span class="state">Check passed.</span> <a href="/project/{{ project.id }}/check/{{ st.index }}">Acknowledge this section</a>
+      {% elif st.state == 'no_check' %}<a href="/project/{{ project.id }}/check/{{ st.index }}">Acknowledge this section</a> <span class="muted">(no check available)</span>
+      {% elif st.state == 'retry' %}<a href="/project/{{ project.id }}/check/{{ st.index }}">Try the check again</a> <span class="muted">best {{ st.best[0] }} of {{ st.best[1] }}</span>
+      {% else %}<a href="/project/{{ project.id }}/check/{{ st.index }}">Check your understanding ({{ st.questions }} question{{ '' if st.questions == 1 else 's' }})</a>{% endif %}
+    </p>
+    {% endif %}
   </section>
   {% else %}
   <p class="empty">No claims have been approved yet.</p>
@@ -84,7 +95,8 @@
     <a class="btn ghost small" href="/project/{{ project.id }}/export.csv{{ q }}">CSV</a>
     <a class="btn ghost small" href="/project/{{ project.id }}/export.xml{{ q }}">XML</a>
     <a class="btn ghost small" href="/project/{{ project.id }}/export.json{{ q }}">JSON</a>
-    <button class="btn ghost small" type="button" id="print">Print or save as PDF</button>
+    <a class="btn ghost small" href="/project/{{ project.id }}/export.pdf{{ q }}">PDF</a>
+    <button class="btn ghost small" type="button" id="print">Print</button>
   </div>
   {% if share %}
   {% if user and user.role == 'successor' %}
@@ -115,12 +127,16 @@
       <p class="state approved">You confirmed you have read this plan on {{ share.acknowledged_at }} UTC.</p>
     {% else %}
       <h3>Finished reading?</h3>
+      {% if all_acked %}
       <form method="post" action="/project/{{ project.id }}/acknowledge">
         <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">I have read this plan</button>
       </form>
+      {% else %}
+      <p class="muted">Pass the short check under each section and acknowledge it first ({{ ack_done }} of {{ ack_total }} done). <a href="/project/{{ project.id }}/check">Open the section checks</a>.</p>
+      {% endif %}
     {% endif %}
   </section>
   {% endif %}
 {% endif %}
 {% endblock %}
-{% block help %}<p>This is your continuation plan. Start with <strong>Project state</strong> and <strong>Week-one actions</strong>. Click a source link to see the exact words each statement came from. Press <strong>I have read this plan</strong> when you are done.</p>{% endblock %}
+{% block help %}<p>This is your continuation plan. Start with <strong>Project state</strong> and <strong>Week-one actions</strong>. Click a source link to see the exact words each statement came from. Pass the short check under each section and acknowledge it, then press <strong>I have read this plan</strong>.</p>{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Check: {{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<p class="muted"><a href="/project/{{ project.id }}/plan">Back to the plan</a> &middot; pass mark {{ pass_mark }}%</p>
+{% if result %}
+  <section class="your-data" role="status"{% if result.passed %} data-celebrate{% endif %}>
+    <h2>{{ result.correct }} of {{ result.total }} correct{% if result.passed %}: passed{% endif %}</h2>
+    <p>Time taken: {{ result.seconds // 60 }} min {{ result.seconds % 60 }} s.</p>
+  </section>
+  <ul class="rows">
+    {% for g in result.graded if not g.correct %}
+    <li><div>
+      <h3>{{ g.question.question }}</h3>
+      <p>Right answer: <strong>{{ g.question.options[g.question.correct_index] }}</strong></p>
+      {% if g.claim %}<p class="muted">The plan says: {{ g.claim.quote or g.claim.statement }} ({{ g.claim.filename }}). <a href="/claim/{{ g.claim.id }}/evidence">See the evidence</a></p>{% endif %}
+    </div></li>
+    {% endfor %}
+  </ul>
+  {% if result.passed %}
+    <form method="post" action="/project/{{ project.id }}/check/{{ index }}/acknowledge"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Acknowledge this section</button></form>
+  {% else %}
+    <p>That is below {{ pass_mark }}%. Read the passages above, then try again.</p>
+    <a class="btn" href="/project/{{ project.id }}/check/{{ index }}">Try again</a>
+  {% endif %}
+{% elif questions %}
+  <form method="post" action="/project/{{ project.id }}/check/{{ index }}" class="stack wide">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% for q in questions %}
+    <fieldset>
+      <legend>{{ loop.index }}. {{ q.question }}</legend>
+      {% for option in q.options %}
+      <label class="inline"><input type="radio" name="q{{ q.id }}" value="{{ loop.index0 }}" required> {{ option }}</label>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+    <button class="btn" type="submit">Submit answers</button>
+  </form>
+{% else %}
+  <p>No check is available for this section, because there is not enough approved material to ask about.</p>
+  <form method="post" action="/project/{{ project.id }}/check/{{ index }}/acknowledge"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Acknowledge this section</button></form>
+{% endif %}
+{% endblock %}

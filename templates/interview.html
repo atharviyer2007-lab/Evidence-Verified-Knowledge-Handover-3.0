@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Interview{% endblock %}
+{% block content %}
+<h1>Handover interview</h1>
+<p class="lede">You are handing over <strong>{{ link.project_name }}</strong>. Answer in your own words. A reviewer checks every answer before anyone else sees it, and you cannot approve anything.</p>
+<section class="your-data">
+  <p><strong data-countup>{{ cov.percent }}%</strong> done: {{ cov.answered }} of {{ cov.raised }} answered, {{ cov.logged }} marked &ldquo;I do not remember&rdquo;, {{ cov.open }} left.</p>
+  <div class="track" role="img" aria-label="{{ cov.percent }} percent answered"><i class="fill backed" style="--w: {{ cov.percent }}%"></i></div>
+</section>
+<ul class="rows interview">
+  {% for item in items %}
+  <li>
+    <div class="grow">
+      <h2>{{ item.prompt }}</h2>
+      <p class="muted">From {{ item.where }}</p>
+      {% if item.state == 'answered' %}<p class="state">Answered{% if item.answer %}: {{ item.answer }}{% endif %}</p>
+      {% elif item.state == 'refer' %}<p class="state">You suggested asking {{ item.who }}.</p>
+      {% elif item.state == 'dont_remember' %}<p class="state rejected">You said you do not remember.</p>{% endif %}
+      {% if not (item.claim and item.claim.status == 'approved' and item.state == 'answered') %}
+      <form method="post" action="/interview/answer" class="stack wide">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="key" value="{{ item.key }}">
+        <label>Your answer<textarea name="text" rows="3" maxlength="400" aria-label="Your answer to: {{ item.prompt }}">{{ item.answer }}</textarea></label>
+        <label>Or name who to ask<input name="who" maxlength="60" value="{{ item.who }}"></label>
+        <div class="actions">
+          <button class="btn small" type="submit" name="action" value="answer">Save answer</button>
+          <button class="btn ghost small" type="submit" name="action" value="refer">Ask this person instead</button>
+          <button class="btn ghost small" type="submit" name="action" value="dont_remember">I do not remember</button>
+        </div>
+      </form>
+      {% else %}<p class="muted">A reviewer approved this answer, so it is locked.</p>{% endif %}
+    </div>
+  </li>
+  {% else %}<li><div><p>There are no questions yet. Ask the reviewer to find claims first.</p></div></li>{% endfor %}
+</ul>
+{% endblock %}

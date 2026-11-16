@@ -8,7 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;800&display=swap" rel="stylesheet">
   <script src="/static/theme.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=20261110-evidence-cards">
+  <link rel="stylesheet" href="/static/style.css?v=20261112-round3">
+  <link rel="stylesheet" href="/static/fx.css?v=20261113-fx">
 </head>
 <body data-role="{{ user.role if user else 'guest' }}" data-start-tour="{{ 'true' if start_tour else 'false' }}">
   <a class="skip" href="#main">Skip to content</a>
@@ -20,7 +21,17 @@
     </a>
     <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="Open navigation menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>Menu</span></button>
     <nav id="main-nav" aria-label="Main">
-      {% if user %}
+      {% if user and user.role == 'leaver' %}
+        <a href="/interview"{% if path == '/interview' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H9l-4 4zM9 9h6M9 12h4"/></svg><span>Interview</span></a>
+        <a href="/help"{% if path == '/help' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.3a2.5 2.5 0 1 1 4.1 1.9c-1 .8-1.8 1.2-1.8 2.5M12 17.2h.01"/></svg><span>Help</span></a>
+        <button class="icon" id="theme" type="button" aria-label="Switch between light and dark colours">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z" fill="currentColor"/></svg>
+        </button>
+        <form method="post" action="/logout">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="quiet" type="submit">Sign out</button>
+        </form>
+      {% elif user %}
         <a href="/workspace"{% if path == '/workspace' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h6v6H4zM14 5.5h6v6h-6zM4 15.5h6v3H4zM14 15.5h6v3h-6z"/></svg><span>Projects</span></a>
         {% if user.role == 'reviewer' %}<a href="/teams"{% if path == '/teams' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.3"/><path d="M3.5 19c.5-3 2.3-4.5 5.5-4.5s5 1.5 5.5 4.5M15 14.5c2.8-.3 4.7 1.2 5.2 3.7"/></svg><span>Teams &amp; requests</span></a><a href="/activity"{% if path == '/activity' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18V9M12 18V5M19 18v-7M3 18.5h18"/></svg><span>Activity</span></a>
         {% else %}<a href="/opportunities"{% if path == '/opportunities' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h16v12H4zM7 7.5V5h10v2.5M4 12h16M10 12v2h4v-2"/></svg><span>Project library</span></a><a href="/my-team"{% if path == '/my-team' %} aria-current="page"{% endif %}><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 19c.7-3.2 3-5 7-5s6.3 1.8 7 5"/></svg><span>My team</span></a>{% endif %}
@@ -49,6 +60,7 @@
     {% for kind, message in flashes %}<div class="toast {{ kind }}" role="status">{{ message }}</div>{% endfor %}
     {% block content %}{% endblock %}
   </main>
+  <footer class="site-foot"><a href="/data-use">How your data is used</a> &middot; Demo data only: synthetic, public or permissioned.</footer>
   {% if user and tour_prompt %}
   <dialog class="welcome-tour" id="welcome-tour" data-open="true" aria-labelledby="welcome-title" aria-describedby="welcome-description">
     <h2 id="welcome-title">Welcome, {{ user.display_name }}.</h2>
@@ -79,5 +91,6 @@
     </div>
   </aside>
   <script src="/static/app.js?v=20261110-final-motion" defer></script>
+  <script src="/static/fx.js?v=20261113-fx" defer></script>
 </body>
 </html>

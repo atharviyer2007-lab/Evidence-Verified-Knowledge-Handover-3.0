@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip %}
+{% block title %}{{ entity.display }}{% endblock %}
+{% block content %}
+<h1>{{ entity.display }}</h1>
+<p class="muted">{{ kind_labels[entity.kind] }} &middot; <a href="/project/{{ project.id }}/state">Back to project state</a></p>
+{% if entity.kind == 'area' %}
+<section class="your-data">
+  <h2>Right now</h2>
+  <p>Owner: <strong>{{ entity.owner_names|join(' or ') if entity.owner_names else 'nobody recorded' }}</strong></p>
+  {% if entity.owners|length > 1 %}<ul>{% for o in entity.owners %}<li>{{ o.name }} in {{ o.file }}</li>{% endfor %}</ul>{% endif %}
+  <p>Status: <strong>{{ entity.status }}</strong>{% if entity.due %}, due {{ entity.due }}{% endif %}</p>
+  {% if entity.blockers %}<p class="state rejected">Blocked: {{ entity.blockers[0].statement }}</p>{% endif %}
+  {% if entity.decision %}<p>Latest decision: {{ entity.decision.statement }} <span class="muted">({{ entity.decision.filename }})</span></p>{% endif %}
+</section>
+{% elif entity.kind == 'person' and entity.areas %}<p>Owns: {{ entity.areas|join(', ') }}</p>{% endif %}
+{% if entity.aliases %}<p class="muted">Also written as: {{ entity.aliases|join(', ') }}</p>{% endif %}
+<h2>Everything linked to this, in order</h2>
+<ul class="rows">
+  {% for when, c in entity.trail %}
+  <li><div>
+    <p>{{ c.statement }}</p>
+    <p class="meta">{{ chip(c.grade) }} <span>{{ labels[c.type] }}</span> <span>{{ c.filename }}</span>{% if when %} <span>{{ when }}</span>{% endif %}{% if c.self_approved %} <span class="chip testimony">self-approved</span>{% endif %} <a href="/claim/{{ c.id }}/evidence">See the evidence</a></p>
+  </div></li>
+  {% endfor %}
+</ul>
+{% endblock %}

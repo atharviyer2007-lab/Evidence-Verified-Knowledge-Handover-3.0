@@ -11,7 +11,7 @@
   <li class="{{ 'yes' if readiness_ready else 'no' }}">Critical rehearsal questions answered{% if not readiness_ready %}. {{ readiness_blockers|length }} remain; <a href="/project/{{ project.id }}/rehearsal">review the rehearsal</a>{% endif %}</li>
 </ul>
 {% if readiness is not none %}
-<p>Readiness check: <strong>{{ readiness }}%</strong> of the questions a successor is likely to ask can be answered from approved claims they may see. <a href="/project/{{ project.id }}/rehearsal">See which ones</a>.</p>
+<p>Readiness check: <strong data-countup>{{ readiness }}%</strong> of the questions a successor is likely to ask can be answered from approved claims they may see. <a href="/project/{{ project.id }}/rehearsal">See which ones</a>.</p>
 {% endif %}
 {% if assignment_locked %}
 <p class="note">This project is assigned exclusively to <strong>{{ current_assignment.team_name }}</strong>. No other successor group can receive it until the assignment is revoked or expires. Completed projects remain locked.</p>
@@ -51,6 +51,12 @@
 <h2>Team task assignments</h2>
 <ul class="rows">{% for a in assignments %}<li><div><h3>{{ a.assignee }} — {{ a.statement }}</h3><p class="muted">{{ a.team_name or a.display_name }} · assigned by the successor team</p></div></li>{% endfor %}</ul>
 {% endif %}
+<h2>Comprehension and views</h2>
+<p><a href="/project/{{ project.id }}/comprehension">Section check results</a>: {{ check_report.attempts }} attempt{{ '' if check_report.attempts == 1 else 's' }} so far.</p>
+{% if views %}
+<details><summary>Who opened the shared plan ({{ view_total }} view{{ '' if view_total == 1 else 's' }})</summary>
+<ul class="rows small-headings">{% for v in views %}<li><div><p>{{ v.display_name }} opened <strong>{{ v.page }}</strong> <span class="muted">{{ v.at }} UTC</span></p></div></li>{% endfor %}</ul></details>
+{% else %}<p class="muted">Nobody has opened the shared plan yet.</p>{% endif %}
 {% if shares %}
 <h2>Who has access</h2>
 <ul class="rows">

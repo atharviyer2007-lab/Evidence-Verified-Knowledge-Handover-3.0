@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Leaver interview{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% include "_stepper.html" %}
+<h2>Leaver interview</h2>
+<p class="lede">Give the person who is leaving their own login. They answer the questions below themselves, so their knowledge is stored as Testimony in their own words. They cannot approve anything, and they see only this interview.</p>
+<section class="your-data">
+  <h2>Coverage</h2>
+  <p><strong data-countup>{{ cov.percent }}%</strong> answered: {{ cov.answered }} of {{ cov.raised }} questions. {{ cov.logged }} logged as &ldquo;I do not remember&rdquo;, {{ cov.open }} still open.</p>
+  <div class="track" role="img" aria-label="{{ cov.percent }} percent of interview questions answered"><i class="fill backed" style="--w: {{ cov.percent }}%"></i></div>
+</section>
+{% if new_login %}
+<div class="note" role="status"><strong>Login created for {{ new_login.name }}.</strong> Username: <code>{{ new_login.username }}</code> &nbsp; Password: <code>{{ new_login.password }}</code><br>Copy this now. The password is not shown again.</div>
+{% endif %}
+<section class="your-data">
+  <h2>Leaver logins</h2>
+  {% if leavers %}
+  <ul class="rows">{% for l in leavers %}
+    <li><div><h3>{{ l.display_name }} <span class="muted">({{ l.username }})</span></h3><p class="muted">{{ 'Revoked' if l.revoked else 'Active' }} &middot; created {{ l.created_at }} UTC</p></div>
+    {% if not l.revoked %}<form method="post" action="/leavers/{{ l.id }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost small" type="submit">Revoke</button></form>{% endif %}</li>
+  {% endfor %}</ul>
+  {% endif %}
+  <form method="post" action="/project/{{ project.id }}/leavers" class="stack wide">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Name of the person leaving<input name="display_name" maxlength="60" required></label>
+    <label>Username<input name="username" minlength="3" maxlength="30" pattern="[a-z0-9][a-z0-9_.\-]{2,29}" required autocomplete="off"></label>
+    <label>Password (leave empty to generate one)<input name="password" type="text" minlength="12" autocomplete="off"></label>
+    <button class="btn" type="submit">Create leaver login</button>
+  </form>
+</section>
+<section class="your-data">
+  <h2>Independent approval</h2>
+  <p>A claim is labelled <span class="chip testimony">self-approved</span> in the plan and in every export when the same person wrote it and approved it. Turn this on if you are handing over your own project and are also the reviewer: every approval is then labelled self-approved.</p>
+  <form method="post" action="/project/{{ project.id }}/solo" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="inline"><input type="checkbox" name="solo" value="true" {{ 'checked' if project.solo }}> I am handing over my own project (solo)</label>
+    <button class="btn ghost small" type="submit">Save</button>
+  </form>
+</section>
+<h2>Question list</h2>
+<ul class="rows">
+  {% for item in items %}
+  <li><div><h3>{{ item.prompt }}</h3>
+    <p class="muted">{{ {'gap': 'Missing information', 'blocker': 'Blocker with no named owner', 'term': 'Used often, never explained', 'owner': 'Single point of failure'}[item.kind] }} &middot; {{ item.where }}</p>
+    {% if item.state == 'answered' %}<p class="state">Answered{% if item.answer %}: {{ item.answer }}{% endif %}</p>
+    {% elif item.state == 'refer' %}<p class="state">Ask {{ item.who }}</p>
+    {% elif item.state == 'dont_remember' %}<p class="state rejected">Logged as an open gap: the leaver does not remember</p>{% endif %}
+  </div></li>
+  {% else %}<li><div><p>Nothing to ask yet. Find claims first.</p></div></li>
+  {% endfor %}
+</ul>
+<p><a href="/project/{{ project.id }}/review">Review the answers</a> before sharing.</p>
+{% endblock %}

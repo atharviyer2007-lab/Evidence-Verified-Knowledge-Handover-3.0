@@ -10,6 +10,12 @@
     <div>
       <h2>{{ v.action|capitalize }}{% if v.undone %} <span class="state rejected">Undone</span>{% endif %}</h2>
       <p>{{ v.statement }}</p>
+      {% if v.diff %}
+      <details open><summary>What changed</summary>
+        {% for d in v.diff %}<p class="diff"><strong>{{ d.label }}:</strong>
+          {% for op, text in d.parts %}{% if op == 'del' %}<del class="diff-del">{{ text }}</del> {% elif op == 'ins' %}<ins class="diff-ins">{{ text }}</ins> {% else %}{{ text }} {% endif %}{% endfor %}</p>{% endfor %}
+      </details>
+      {% endif %}
       <p class="meta">{{ chip(v.grade) }} <span>{{ v.status|capitalize }}</span> <span>by {{ v.by_user }}, {{ v.at }} UTC</span></p>
       {% if v.note %}<p class="note">{{ v.note }}</p>{% endif %}
     </div>

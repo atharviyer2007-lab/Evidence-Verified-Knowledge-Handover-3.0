@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Project state{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% if stats and not previewing %}{% include "_stepper.html" %}{% endif %}
+<h2>Project state</h2>
+<p class="lede">Who owns what, what is blocked and what was last decided, built by linking the same names and work areas across every file. Each line is cited to its source.{% if not reviewer %} This shows only approved claims you may see.{% endif %}</p>
+{% if reviewer %}{% include "_flags.html" %}{% endif %}
+{% for kind in ['area', 'person', 'id'] %}
+{% set group = entities|selectattr('kind', 'equalto', kind)|list %}
+{% if group %}
+<h2>{{ {'area': 'Work areas and systems', 'person': 'People', 'id': 'Identifiers'}[kind] }}</h2>
+<ul class="rows">
+  {% for e in group %}
+  <li>
+    <div>
+      <h3><a href="/project/{{ project.id }}/entity?kind={{ e.kind }}&amp;name={{ e.name|urlencode }}">{{ e.display }}</a></h3>
+      {% if e.kind == 'area' %}
+      <p>Owner: <strong>{{ e.owner_names|join(' or ') if e.owner_names else 'nobody recorded' }}</strong> &middot; Status: <strong>{{ e.status }}</strong>{% if e.due %} &middot; due {{ e.due }}{% endif %}</p>
+      {% if e.blockers %}<p class="state rejected">Blocked: {{ e.blockers[0].statement }}</p>{% endif %}
+      {% elif e.kind == 'person' and e.areas %}<p>Owns: {{ e.areas|join(', ') }}</p>{% endif %}
+      <p class="muted">{{ e.claims|length }} claim{{ '' if e.claims|length == 1 else 's' }} in {{ e.sources|length }} file{{ '' if e.sources|length == 1 else 's' }}: {{ e.sources|join(', ') }}{% if e.cross_source %} &middot; <strong>linked across files</strong>{% endif %}</p>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% else %}<p>Nothing is linked yet. {% if reviewer %}Find claims and approve some, then come back.{% else %}No approved claims are available to you yet.{% endif %}</p>
+{% endfor %}
+{% if reviewer %}
+<section class="your-data">
+  <h2>Merge two names</h2>
+  <p class="muted">If one person or work area is written two ways, tell Handover they are the same. Matching is by name, so unusual spellings need this.</p>
+  {% if aliases %}<ul class="rows">{% for a in aliases %}
+    <li><div><p>&ldquo;{{ a.alias }}&rdquo; is treated as &ldquo;{{ a.canonical }}&rdquo; ({{ a.kind }})</p></div>
+    <form method="post" action="/aliases/{{ a.id }}/delete"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost small" type="submit">Remove</button></form></li>
+  {% endfor %}</ul>{% endif %}
+  <form method="post" action="/project/{{ project.id }}/aliases" class="stack wide">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>This is a<select name="kind"><option value="person">person</option><option value="area">work area</option></select></label>
+    <label>Written as<input name="alias" required maxlength="80"></label>
+    <label>Same as<input name="canonical" required maxlength="80"></label>
+    <button class="btn small" type="submit">Merge</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

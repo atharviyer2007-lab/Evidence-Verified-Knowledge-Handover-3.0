@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Comprehension results{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+{% include "_stepper.html" %}
+<h2>Comprehension results</h2>
+<p class="lede">How well the successor understood each section. {{ report.attempts }} attempt{{ '' if report.attempts == 1 else 's' }} so far. Pass mark {{ pass_mark }}%.</p>
+{% if report.sections %}
+<div class="scroll" tabindex="0" role="region" aria-label="Section results, scrolls sideways on small screens"><table class="grid">
+  <thead><tr><th scope="col">Section</th><th scope="col">Attempts</th><th scope="col">Passed</th><th scope="col">Best score</th><th scope="col">Average time</th><th scope="col">Acknowledged</th></tr></thead>
+  <tbody>{% for s in report.sections %}
+    <tr><th scope="row">{{ s.title }}</th><td>{{ s.attempts }}</td><td>{{ s.passed }}</td><td>{{ (s.best ~ '%') if s.best is not none else 'none yet' }}</td><td>{{ (s.average_seconds ~ ' s') if s.average_seconds is not none else 'none yet' }}</td><td>{{ s.acked }}</td></tr>
+  {% endfor %}</tbody>
+</table></div>
+{% else %}<p>No one has taken a check yet. Share the plan first.</p>{% endif %}
+{% if report.missed %}
+<h2>Most-missed questions</h2>
+<p class="muted">A question many people miss usually points to a section that needs rewriting.</p>
+<ul class="rows">{% for m in report.missed %}
+  <li><div><h3>{{ m.question }}</h3><p class="muted">{{ m.section }} &middot; missed {{ m.misses }} of {{ m.tries }} tries &middot; right answer: {{ m.options[m.correct_index] }}</p></div></li>
+{% endfor %}</ul>
+{% endif %}
+{% endblock %}

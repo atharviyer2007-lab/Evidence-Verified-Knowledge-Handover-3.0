@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}How your data is used{% endblock %}
+{% block content %}
+<h1>How your data is used</h1>
+<p class="lede">This is a hackathon demonstration. Use synthetic, public or permissioned material only. Do not upload confidential or personal files.</p>
+<section class="your-data">
+  <h2>What is stored</h2>
+  <ul class="plain">
+    <li>Files you upload, after emails, phone numbers, passwords and keys are masked by pattern. The masking is rule-based and will miss some sensitive text.</li>
+    <li>Claims found in those files, your review decisions, version history, an activity log and notifications.</li>
+    <li>Accounts: usernames, hashed passwords (PBKDF2-SHA256) and display names.</li>
+  </ul>
+</section>
+<section class="your-data">
+  <h2>Where it is stored</h2>
+  <p>In a SQLite database on the server that runs this site. On the free demo host the database is erased whenever the app restarts, and the seven demo projects are loaded again. The session cookie is {% if secure_cookie %}marked Secure and sent only over https{% else %}not marked Secure on this server, because it is running over plain http{% endif %}.</p>
+</section>
+<section class="your-data">
+  <h2>Which AI model reads your files</h2>
+  {% if ai_enabled %}
+  <p>An optional AI helper is <strong>switched on</strong> on this server. When you choose Find claims, up to the first 12,000 characters of each file are sent to Anthropic's Claude API to suggest claims. Every quote it returns is still checked by code against your file, and a reviewer must approve each claim.</p>
+  {% else %}
+  <p>No AI model reads your files on this server. The optional AI helper is <strong>switched off</strong>, so claims are found by built-in rules and nothing is sent to any AI service.</p>
+  {% endif %}
+</section>
+<section class="your-data">
+  <h2>Other services</h2>
+  <p>Pages load fonts from Google Fonts, so your browser contacts Google when a page opens. No analytics or advertising services are used.</p>
+</section>
+<section class="your-data">
+  <h2>Who can see what</h2>
+  <p>Every source file has an access level (public, team or restricted). A successor only ever receives approved claims at or below their own clearance. Restricted claims are filtered out before a plan, timeline, search result, export or state page is built, not hidden afterwards.</p>
+</section>
+<section class="your-data">
+  <h2>Deleting your data</h2>
+  <p>A reviewer can delete a project and everything in it from the project overview page. Leaver logins and their answers are deleted with the project.</p>
+</section>
+{% endblock %}

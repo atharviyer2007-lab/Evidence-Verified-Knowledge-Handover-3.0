@@ -1,0 +1,12 @@
+{% if flags %}
+<section class="your-data" aria-labelledby="flags-title">
+  <h2 id="flags-title">Cross-source checks ({{ flags|length }})</h2>
+  <p class="muted">Found by comparing the files against each other. Each one needs a person to decide.</p>
+  <ul class="rows">
+    {% for f in flags %}
+    <li><div><h3>{{ f.title }}</h3><p>{{ f.message }}</p>
+      {% if f.entity %}<p><a href="/project/{{ project.id }}/entity?kind={{ f.entity[0] }}&amp;name={{ f.entity[1]|urlencode }}">See everything linked to {{ f.entity[1] }}</a></p>{% endif %}</div></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
