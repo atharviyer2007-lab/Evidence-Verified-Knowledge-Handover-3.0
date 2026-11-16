@@ -128,6 +128,17 @@ Successor teams can register from the sign-in page. One team-leader login repres
 | Reply to a sent-back action | Share (reviewer) |
 | Replace a file and flag approved claims that no longer match it | Add files, same file name |
 | Download the plan as Excel (with a chart), Word, CSV, XML or JSON, or print it | Plan |
+| Give the person leaving their own login and let them answer the interview themselves | Project page, "Leaver interview" |
+| Label approvals as self-approved when one person wrote and approved a claim, or on a solo handover | Leaver interview page; shown in the plan and every download |
+| See who owns what across every file, with repository-author evidence and three cross-source checks | Project page, "Project state"; flags also appear on Review |
+| Merge two spellings of one person or work area | Project state, "Merge two names" |
+| Check understanding section by section and unlock acknowledgement | Plan (successor), "Section checks" |
+| See scores, time taken and the most-missed questions | Share or project page, "Comprehension results" |
+| See who opened a shared plan | Share, "Who opened the shared plan" |
+| See exactly what changed in a claim, word by word | Review, then History |
+| Download a PDF of the plan | Plan, "PDF" |
+| Read how your data is used | Footer link on every page, "How your data is used" |
+| Jump to search with the keyboard | Press `/` on a page that has a search box |
 | See who did what | Activity |
 | Delete a project and everything in it | Project page, "Delete this project" |
 | Try seven cross-industry synthetic examples | Reviewer "Teams & requests" demo buttons, or `python seed_demo_board.py` to seed the board |
@@ -155,11 +166,16 @@ The round Help button in the corner of every page explains the page you are on.
 | File or folder | What it does |
 | --- | --- |
 | `app.py` | The web pages and what each button does |
-| `pipeline.py` | The core logic: hiding secrets, finding claims, checking quotes, grading, timeline, questions, building the plan |
+| `pipeline.py` | The core logic: hiding secrets, finding claims, checking quotes, grading, repository-author evidence, timeline, questions, building the plan |
 | `exports.py` | Builds the Excel, Word, CSV, XML and JSON downloads and protects them from spreadsheet formula tricks |
 | `db.py` | The database. Plain SQLite with a few small helpers: `query`, `one`, `run` and `run_all` |
 | `security.py` | Password hashing, login limits and security headers |
-| `llm.py` | Optional AI helper, off unless you set a key |
+| `llm.py` | Optional AI helper, off unless you set a key. Retries once, then fails visibly |
+| `interview.py` | Leaver Interview Mode: the question queue, answers stored as Testimony, the coverage meter |
+| `linking.py` | Cross-source links, the Project State page and the three cross-source checks |
+| `quiz.py` | Comprehension Check: section quizzes, per-section acknowledgement, reviewer results |
+| `simplepdf.py` | A small PDF writer with no extra packages |
+| `static/fx.css`, `static/fx.js` | Motion and polish: reading progress bar, cursor glow, button ripples, count-up numbers, confetti, quiz progress bar, circular theme switch, back to top. Everything is switched off for people who ask their device for reduced motion, and the pages work without it |
 | `templates/` | The pages (HTML) |
 | `static/` | The look and animations (CSS and JavaScript) |
 | `sample_data/` | Synthetic project files for seven sectors, each with a `planted.json` list of problems hidden on purpose |
@@ -207,7 +223,10 @@ The round Help button in the corner of every page explains the page you are on.
 - **Tour.** A per-account first-sign-in prompt offers Start, Not now, and “Don’t ask again.” Not now can be revisited on a later sign-in; Help & tour can restart page guidance.
 - **Project library and group ownership.** Reviewer-authored safe briefs include scope, useful skills, expected outcome and computed status. The project lock is transactional; one group owns an active assignment. Competing pending requests are closed with an explanation.
 - **Completion review.** The assigned group submits only after all visible next actions are marked done and no item is awaiting a reviewer reply. Reviewers accept or request changes with required written feedback.
-- **Tests.** The current automated suite has 62 passing tests, including exclusive-team access and successor completion review. This does not replace a live classmate/usability trial or production security deployment review.
+- **Leaver Interview Mode.** A reviewer creates a login for the person leaving. That login can open one page and nothing else: every other route answers 403. Their answers become Testimony claims in their own name; a reviewer still approves each one. A claim is labelled self-approved when its author and approver are the same person, or when the project is marked solo.
+- **Project State.** Entities (work areas, people, identifiers) are rebuilt from the claims every time, never stored, so they cannot drift from review decisions. They are built only from claims the viewer may see. The three checks are: different owners in different files, a task with no owner, and a decision with no follow-up action.
+- **Comprehension Check.** Each section gets up to five questions built from approved claims the successor may see. Ownership that two sources dispute is never quizzed. The pass mark is 80% and retries are allowed. A wrong answer shows the cited passage. Acknowledging the whole plan needs every section acknowledged.
+- **Tests.** The current automated suite has 103 passing tests, including exclusive-team access, successor completion review, repository-author risk evidence, leaver access limits, prompt-injection and the new section checks. This does not replace a live classmate/usability trial or production security deployment review.
 - **Upgrading.** If you already have a `handover.db` from an earlier version, new columns are added automatically when the app starts.
 
 ## Security built in
@@ -215,7 +234,9 @@ The round Help button in the corner of every page explains the page you are on.
 - Passwords are stored as salted PBKDF2 hashes, never as plain text.
 - Every form has a security token, and every page checks permissions on the server.
 - Login is limited to five tries a minute.
-- Signed session cookies, content security policy, no framing, and no content sniffing.
+- Signed session cookies, content security policy, no framing, and no content sniffing. The session cookie is marked Secure automatically on Render, or when `COOKIE_SECURE=1`.
+- A leaver login is limited to its own interview page; a malformed password hash fails safely instead of crashing sign-in.
+- Source text is wrapped as untrusted data before any model sees it, and nothing a model returns can approve a claim or change access.
 - File uploads are limited to `.txt`, `.md`, `.csv` and `.json` under 200 KB.
 - Every database query uses placeholders, and every page escapes what it shows.
 - Every sign-in, upload, approval, share and deletion is recorded on the Activity page.
@@ -244,10 +265,11 @@ Set these before starting the app if you want them.
 | `HANDOVER_DB` | Uses a different database file |
 | `ANTHROPIC_API_KEY` | Lets an AI model suggest claims from text files instead of the built-in rules |
 | `LLM_MODEL` | Which model to use with the key above |
+| `COOKIE_SECURE` | `1` marks the session cookie Secure (https only), `0` turns that off. Render turns it on by itself |
 
 Example on macOS or Linux: `ANTHROPIC_API_KEY=your-key uvicorn app:app`
 
-If you turn the AI helper on, the text of your files is sent to that provider. Use made-up or permitted data only. Quotes suggested by the AI are checked against your file exactly like every other claim, and anything it cannot prove is downgraded. If the call fails, the app quietly uses the built-in rules. The reply parsing is tested, but the helper has not been tested with a live key.
+If you turn the AI helper on, the text of your files is sent to that provider. Use made-up or permitted data only. Quotes suggested by the AI are checked against your file exactly like every other claim, and anything it cannot prove is downgraded. If a reply cannot be read, the app asks once more, and if that fails too it uses the built-in rules and shows a warning. The reply parsing is tested, but the helper has not been tested with a live key.
 
 ## Run the tests
 
@@ -255,7 +277,7 @@ If you turn the AI helper on, the text of your files is sent to that provider. U
 pytest
 ```
 
-You should see `60 passed`. The tests cover group registration and roster validation, job-title/permission separation, reviewer-created demo teams, incomplete-project requests and feedback, member-level task assignment, category publishing/search/filtering, password hashing and validation, hiding secrets, quote checking, conflict detection, the rules that Inferred and Unknown claims cannot be approved as facts, the hard sharing readiness gate, restricted claims never reaching the successor (in the plan, timeline, search, evidence and every download), acknowledgement, revoking and expiring access, the action tracker, replacing files, deleting projects, undo and redo, upgrading an old database, search, unfinished work, who holds the knowledge, recurring problems, the readiness rehearsal, the seven-demo self-check, notifications, Word and XML files, questions, the phrase finder, login protections and AI reply parsing. A harmless warning about `httpx` can be ignored.
+You should see `103 passed`. The tests cover group registration and roster validation, job-title/permission separation, reviewer-created demo teams, incomplete-project requests and feedback, member-level task assignment, category publishing/search/filtering, password hashing and validation, hiding secrets, quote checking, conflict detection, the rules that Inferred and Unknown claims cannot be approved as facts, the hard sharing readiness gate, restricted claims never reaching the successor (in the plan, timeline, search, evidence and every download), acknowledgement, revoking and expiring access, the action tracker, replacing files, deleting projects, undo and redo, upgrading an old database, search, unfinished work, who holds the knowledge, recurring problems, the readiness rehearsal, the seven-demo self-check, notifications, Word and XML files, questions, the phrase finder, login protections and AI reply parsing. A harmless warning about `httpx` can be ignored.
 
 ## Good to know
 

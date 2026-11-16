@@ -1,4 +1,46 @@
 Accessibility report
+Date: 2026-11-13 (Round 3 build)
+
+Tool: axe-core 4.14.0, run in a real Chromium browser (Playwright)
+Rules: WCAG 2.0 A and AA, WCAG 2.1 A and AA
+Themes: light and dark. Widths: 1280 and 390 pixels. Roles: reviewer, successor and leaver.
+Pages: home, project overview, review, project state, entity detail, leaver interview (reviewer and leaver views),
+share, comprehension results, how your data is used, the successor's plan, project state and section-check list,
+and a section quiz. 53 page views in total.
+Result: 0 violations, 0 console errors, no sideways scrolling.
+Test conditions: reduced motion was switched on so animations could not blend colours mid-fade, and the page
+security policy was bypassed in the test browser only so the axe script could be injected. Console errors from
+Google Fonts downloads were ignored because the test machine has no internet access.
+
+Found and fixed during this pass
+- Links were pink on white at 4.16:1 on every light-mode page. They now use the darker pink, 5.8:1.
+- The white link rule meant for the top bar also applied to the review, plan and timeline filter tabs, which made
+  their labels white on a pale background in light mode. The tabs now use their own colours.
+- The Help and tour button was white on pink at 4.16:1. It is now 5.1:1.
+- The Backed chip on tinted rows (4.3:1) and the expandable summary text (4.16:1) were darkened.
+- The comprehension table scrolls sideways on small screens and could not be reached by keyboard. It is now a
+  focusable, labelled region.
+
+Not done
+- No screen reader or keyboard-only test by a person.
+- Pages not in the list above were not re-run in this pass (see the earlier report below).
+
+Second pass, same day: the whole app after the motion and polish layer was added
+- Every reachable page was crawled as four roles (guest, reviewer, successor, leaver): 98 pages, 1,116 checks covering
+  status codes, page titles, one heading per page, duplicate ids, sideways scrolling, broken images, console and network
+  errors, every form pointing at a real route, and every POST form carrying its security token. 0 failures.
+- 21 small controls were driven with a real mouse and keyboard in Chromium: theme switch and its memory, help panel and
+  Escape, the guided tour step by step, the welcome dialog, the phone menu, wrong and right sign-ins, sign out, form
+  validation, review tabs, confirm dialogs (Cancel keeps data, OK acts), search, evidence highlight and Go back, Print,
+  PDF download, Copy all questions, file upload, project delete, the full leaver interview, the section quiz including its
+  live progress bar, toast timeout, the 404 page, keyboard focus and the self-check page. 0 failures.
+- axe-core was run again on the same 53 page views twice: once with reduced motion, and once with all animations on after
+  scrolling the whole page. 0 violations both times.
+- Found and fixed: a leaver's menu showed Project library and My team, which only led to an error page; the closed phone
+  menu could still be reached with the Tab key.
+
+----- Previous report (2026-11-10) -----
+Accessibility report
 Date: 2026-11-10
 
 Tool: axe-core (automated), run in a real Chromium browser against every page

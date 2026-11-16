@@ -7,7 +7,8 @@ from openpyxl import Workbook
 from openpyxl.chart import BarChart, Reference
 from openpyxl.styles import Alignment, Font
 
-COLUMNS = ["type", "statement", "grade", "quote", "source", "note"]
+COLUMNS = ["type", "statement", "grade", "quote", "source", "note", "approval"]
+DEFAULTS = {"approval": "independent"}
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -24,7 +25,7 @@ def to_csv(rows):
     writer = csv.writer(buffer)
     writer.writerow(COLUMNS)
     for row in rows:
-        writer.writerow([safe(row[column]) for column in COLUMNS])
+        writer.writerow([safe(row.get(column, DEFAULTS.get(column, ""))) for column in COLUMNS])
     return buffer.getvalue()
 
 
@@ -36,8 +37,8 @@ def to_xlsx(rows):
     for cell in plan[1]:
         cell.font = Font(bold=True)
     for row in rows:
-        plan.append([safe(row[column]) for column in COLUMNS])
-    for column, width in zip("ABCDEF", (16, 70, 14, 50, 22, 40)):
+        plan.append([safe(row.get(column, DEFAULTS.get(column, ""))) for column in COLUMNS])
+    for column, width in zip("ABCDEFG", (16, 70, 14, 50, 22, 40, 16)):
         plan.column_dimensions[column].width = width
     for line in plan.iter_rows(min_row=2):
         for cell in line:
@@ -58,7 +59,7 @@ def to_xlsx(rows):
 
 
 def plain(rows):
-    return [{column: row[column] for column in COLUMNS} for row in rows]
+    return [{column: row.get(column, DEFAULTS.get(column, "")) for column in COLUMNS} for row in rows]
 
 
 def clean(value):
@@ -72,7 +73,7 @@ def xml_text(value):
 def to_xml(rows, title):
     lines = ['<?xml version="1.0" encoding="UTF-8"?>', f'<handover project="{xml_text(title)}">']
     for row in rows:
-        fields = "".join(f"<{column}>{xml_text(row[column])}</{column}>" for column in COLUMNS)
+        fields = "".join(f"<{column}>{xml_text(row.get(column, DEFAULTS.get(column, "")))}</{column}>" for column in COLUMNS)
         lines.append(f'  <claim section="{xml_text(row["section"])}">{fields}</claim>')
     lines.append("</handover>")
     return "\n".join(lines)
@@ -89,7 +90,7 @@ def to_docx(rows, title):
             document.add_heading(clean(section), 1)
         paragraph = document.add_paragraph(style="List Bullet")
         paragraph.add_run(clean(row["statement"]))
-        paragraph.add_run(clean(f"  [{row['grade']}, source: {row['source']}]")).italic = True
+        paragraph.add_run(clean(f"  [{row['grade']}, source: {row['source']}, {row.get('approval', 'independent')}]")).italic = True
         if row["note"]:
             paragraph.add_run(clean(f"  Note: {row['note']}"))
     buffer = io.BytesIO()

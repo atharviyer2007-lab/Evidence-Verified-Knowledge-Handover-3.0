@@ -29,7 +29,10 @@ def hash_password(password):
 
 
 def verify_password(password, stored):
-    salt, digest = stored.split("$")
+    try:
+        salt, digest = stored.split("$")
+    except (ValueError, AttributeError):
+        return False
     candidate = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), ITERATIONS).hex()
     return hmac.compare_digest(candidate, digest)
 

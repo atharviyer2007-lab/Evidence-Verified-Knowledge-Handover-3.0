@@ -1,4 +1,32 @@
 Security scan report
+Date: 2026-11-13 (Round 3 build)
+
+Commands: bandit -r . -x ./tests     pip-audit -r requirements.txt     pytest
+Results
+- bandit: no issues identified. 3,144 lines of code scanned. One finding was deliberately disabled with a written reason:
+  B311 on the seeded shuffle that makes each section check repeatable (not a security use of random numbers).
+- pip-audit: no known vulnerabilities in requirements.txt.
+- pytest: 102 tests pass (62 earlier tests plus 40 for this round).
+- Live run: the app was started the way the host starts it (seed script, then uvicorn) and driven over real HTTP:
+  64 checks, 228 requests, 0 server errors, 0 tracebacks. A later full crawl and 21 control checks (see the accessibility
+  report) also produced 0 server errors.
+
+Found and fixed during this round
+- A malformed stored password hash made sign-in crash. It now fails safely and the sign-in is refused.
+- Source text sent to the optional AI helper is now wrapped as untrusted data with an instruction not to follow it.
+  A test feeds hostile instructions through a source file and through a fake model reply: no claim was approved,
+  nothing was shared, and invented quotes were downgraded to Inferred.
+- The session cookie is now marked Secure on Render (or when COOKIE_SECURE=1).
+- The AI helper retries once and then shows a visible warning instead of failing silently.
+- A leaver login can reach only its own interview page. A test calls every other route and expects 403 or a redirect.
+
+Not done
+- No OWASP ZAP baseline scan of the running app.
+- The login rate limiter is in memory, so it resets on restart and does not span workers.
+- The optional AI helper has been tested only with a fake model reply, not against the live API.
+
+----- Previous report (2026-11-10) -----
+Security scan report
 Date: 2026-11-10
 
 Command: bandit -r . -x ./tests

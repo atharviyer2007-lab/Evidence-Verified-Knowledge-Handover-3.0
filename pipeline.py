@@ -153,11 +153,18 @@ def render_json(raw):
     except ValueError:
         return raw
     items = data if isinstance(data, list) else [data]
-    lines = [
-        f"[{item.get('date', '')}] {item.get('author', 'Unknown')}: {item.get('text', item.get('message', ''))}"
-        for item in items
-        if isinstance(item, dict)
-    ]
+    lines = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        paths = item.get("files") or item.get("paths") or item.get("changed_files") or []
+        if isinstance(paths, str):
+            paths = [paths]
+        path_note = f" [files: {', '.join(str(path) for path in paths)}]" if paths else ""
+        lines.append(
+            f"[{item.get('date', '')}] {item.get('author', 'Unknown')}: "
+            f"{item.get('text', item.get('message', ''))}{path_note}"
+        )
     return "\n".join(lines) or raw
 
 
@@ -396,6 +403,15 @@ def load_demo(user_name, key="events"):
 
 def delete_project(project_id):
     run_all([
+        ("DELETE FROM quiz_answers WHERE attempt_id IN (SELECT a.id FROM quiz_attempts a JOIN shares s ON s.id = a.share_id WHERE s.project_id = ?)", (project_id,)),
+        ("DELETE FROM quiz_attempts WHERE share_id IN (SELECT id FROM shares WHERE project_id = ?)", (project_id,)),
+        ("DELETE FROM quiz_questions WHERE share_id IN (SELECT id FROM shares WHERE project_id = ?)", (project_id,)),
+        ("DELETE FROM section_acks WHERE share_id IN (SELECT id FROM shares WHERE project_id = ?)", (project_id,)),
+        ("DELETE FROM plan_views WHERE project_id = ?", (project_id,)),
+        ("DELETE FROM interview_items WHERE project_id = ?", (project_id,)),
+        ("DELETE FROM entity_aliases WHERE project_id = ?", (project_id,)),
+        ("DELETE FROM users WHERE id IN (SELECT user_id FROM leavers WHERE project_id = ?)", (project_id,)),
+        ("DELETE FROM leavers WHERE project_id = ?", (project_id,)),
         ("DELETE FROM successor_submissions WHERE project_id = ?", (project_id,)),
         ("DELETE FROM project_requests WHERE project_id = ?", (project_id,)),
         ("DELETE FROM project_assignments WHERE project_id = ?", (project_id,)),
@@ -529,13 +545,94 @@ def knowledge_map(project_id):
         (project_id,),
     ):
         owners.setdefault(row["owner"], set()).add(row["area"])
+    repo_commits = {}
+    for contributor in repository_activity(project_id):
+        repo_commits[contributor["name"]] = contributor
+        owners.setdefault(contributor["name"], set()).update(contributor["areas"])
     total = len(set().union(*owners.values())) if owners else 0
     people = [
         {"name": name, "areas": sorted(areas), "count": len(areas), "share": round(100 * len(areas) / total),
-         "at_risk": len(areas) >= SPOF_THRESHOLD}
+         "at_risk": len(areas) >= SPOF_THRESHOLD or repo_commits.get(name, {}).get("at_risk", False),
+         "repo_commits": repo_commits.get(name, {}).get("commits", 0),
+         "repo_paths": repo_commits.get(name, {}).get("paths", 0),
+         "evidence": ("claims and repository activity" if name in repo_commits and name in owners and
+                      any(row["owner"] == name for row in query(
+                          "SELECT owner FROM claims WHERE project_id = ? AND status != 'rejected' AND owner = ?",
+                          (project_id, name))) else
+                      "repository activity" if name in repo_commits else "handover claims")}
         for name, areas in owners.items()
     ]
     return sorted(people, key=lambda person: (-person["count"], person["name"]))
+
+
+REPO_AUTHOR = re.compile(r"^\s*(?:author|committer)\s*[:=]\s*([^<\n]+?)(?:\s*<[^>]+>)?\s*$", re.I)
+REPO_INLINE_AUTHOR = re.compile(r"^\[[^\]]*\]\s*([^:]+):\s*", re.I)
+REPO_PATH = re.compile(r"(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.[A-Za-z0-9]+")
+
+
+def _repository_area(path):
+    cleaned = path.strip().strip("`'\"(),[]")
+    if not cleaned or cleaned.startswith(("http://", "https://")):
+        return ""
+    parts = [part for part in cleaned.split("/") if part and part not in (".", "..")]
+    if not parts:
+        return ""
+    if len(parts) >= 2:
+        return "/".join(parts[:2])
+    return parts[0].rsplit(".", 1)[0]
+
+
+def repository_activity(project_id):
+    """Extract lightweight author/path evidence from repository exports.
+
+    Supported inputs include git-log text with Author/Committer and stat lines,
+    plus JSON commit exports containing author and files/paths/changed_files.
+    This remains metadata evidence only; it never creates or approves claims.
+    """
+    activity = {}
+
+    def commit(author, paths):
+        if not author:
+            return
+        item = activity.setdefault(author, {"areas": set(), "commits": 0, "paths": 0})
+        clean_paths = {path for path in paths if path}
+        item["areas"].update(clean_paths)
+        item["paths"] += len(clean_paths)
+        item["commits"] += 1
+
+    for source in query("SELECT filename, content FROM sources WHERE project_id = ? AND source_type = 'repository'",
+                        (project_id,)):
+        current = ""
+        pending_paths = set()
+        for raw_line in source["content"].splitlines():
+            line = raw_line.strip()
+            author_match = REPO_AUTHOR.match(line)
+            if author_match:
+                commit(current, pending_paths)
+                current = author_match.group(1).strip()
+                pending_paths = set()
+                continue
+            inline = REPO_INLINE_AUTHOR.match(line)
+            if inline:
+                commit(current, pending_paths)
+                current = inline.group(1).strip()
+                pending_paths = set()
+            paths = REPO_PATH.findall(line)
+            if paths and current:
+                pending_paths.update(_repository_area(path) for path in paths)
+            if current and (not line or line.startswith("commit ") or line.lower().startswith("author:")):
+                commit(current, pending_paths)
+                current, pending_paths = "", set()
+        if current:
+            commit(current, pending_paths)
+    total_paths = len(set().union(*(item["areas"] for item in activity.values()))) if activity else 0
+    result = []
+    for name, item in activity.items():
+        areas = sorted(item["areas"])
+        result.append({"name": name, "areas": areas, "commits": item["commits"], "paths": item["paths"],
+                       "share": round(100 * len(areas) / total_paths) if total_paths else 0,
+                       "at_risk": len(areas) >= SPOF_THRESHOLD})
+    return sorted(result, key=lambda person: (-len(person["areas"]), person["name"]))
 
 
 def recurring_problems(project_id, clearance=2, approved_only=False, limit=6):
@@ -630,8 +727,21 @@ def evaluate(key):
             f"{claim['statement']} {claim['quote']} {claim['note']}"
             for _, items in plan_sections(project_id, 1) for claim in items
         ) + " ".join(claim["statement"] for _, items in timeline(project_id, 1) for claim in items)
+        import linking
+        import quiz
+
+        questions = quiz.generate(project_id, 1, 0)
+        shown += " " + linking.leak_text(project_id) + " " + " ".join(
+            f"{item['question']} {' '.join(item['options'])}" for group in questions.values() for item in group)
+        entities = linking.build(project_id, 2, False)
+        links = []
+        for item in planted.get("expected_links", []):
+            match = next((e for e in entities if e["kind"] == item["kind"] and e["name"].lower() == item["name"].lower()), None)
+            links.append((f"{item['name']}: {', '.join(item['files'])}", bool(match) and set(item["files"]) <= set(match["sources"])))
         stored = " ".join(row["content"] for row in query("SELECT content FROM sources WHERE project_id = ?", (project_id,)))
         return {
+            "links": links,
+            "quiz_questions": sum(len(group) for group in questions.values()),
             "title": DEMOS[key]["title"],
             "claims": len(claims),
             "quotes": (len(found_quotes), len(quoted)),

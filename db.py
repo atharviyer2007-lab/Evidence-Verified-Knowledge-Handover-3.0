@@ -52,6 +52,28 @@ CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY, user_id INTEGER, message TEXT, link TEXT, created_at TEXT, is_read INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS audit (
     id INTEGER PRIMARY KEY, at TEXT, user TEXT, action TEXT, detail TEXT);
+CREATE TABLE IF NOT EXISTS leavers (
+    id INTEGER PRIMARY KEY, user_id INTEGER UNIQUE, project_id INTEGER, created_by TEXT, created_at TEXT,
+    revoked INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS interview_items (
+    id INTEGER PRIMARY KEY, project_id INTEGER, item_key TEXT, kind TEXT, prompt TEXT, status TEXT DEFAULT 'open',
+    answer TEXT DEFAULT '', who TEXT DEFAULT '', claim_id INTEGER, user_id INTEGER, answered_at TEXT,
+    UNIQUE (project_id, item_key));
+CREATE TABLE IF NOT EXISTS entity_aliases (
+    id INTEGER PRIMARY KEY, project_id INTEGER, kind TEXT, alias TEXT, canonical TEXT, created_by TEXT, created_at TEXT,
+    UNIQUE (project_id, kind, alias));
+CREATE TABLE IF NOT EXISTS quiz_questions (
+    id INTEGER PRIMARY KEY, share_id INTEGER, section TEXT, position INTEGER, question TEXT, options TEXT,
+    correct_index INTEGER, claim_id INTEGER, created_at TEXT);
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+    id INTEGER PRIMARY KEY, share_id INTEGER, section TEXT, started_at TEXT, submitted_at TEXT,
+    total INTEGER DEFAULT 0, correct INTEGER DEFAULT 0, passed INTEGER DEFAULT 0, seconds INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS quiz_answers (
+    id INTEGER PRIMARY KEY, attempt_id INTEGER, question_id INTEGER, chosen_index INTEGER, is_correct INTEGER);
+CREATE TABLE IF NOT EXISTS section_acks (
+    id INTEGER PRIMARY KEY, share_id INTEGER, section TEXT, acked_at TEXT, UNIQUE (share_id, section));
+CREATE TABLE IF NOT EXISTS plan_views (
+    id INTEGER PRIMARY KEY, share_id INTEGER, project_id INTEGER, user_id INTEGER, page TEXT, at TEXT);
 """
 
 MIGRATIONS = [
@@ -68,6 +90,10 @@ MIGRATIONS = [
     ("public_scope", "projects", "ALTER TABLE projects ADD COLUMN public_scope TEXT DEFAULT ''"),
     ("public_skills", "projects", "ALTER TABLE projects ADD COLUMN public_skills TEXT DEFAULT ''"),
     ("public_outcome", "projects", "ALTER TABLE projects ADD COLUMN public_outcome TEXT DEFAULT ''"),
+    ("authored_by", "claims", "ALTER TABLE claims ADD COLUMN authored_by TEXT DEFAULT ''"),
+    ("approved_by", "claims", "ALTER TABLE claims ADD COLUMN approved_by TEXT DEFAULT ''"),
+    ("self_approved", "claims", "ALTER TABLE claims ADD COLUMN self_approved INTEGER DEFAULT 0"),
+    ("solo", "projects", "ALTER TABLE projects ADD COLUMN solo INTEGER DEFAULT 0"),
 ]
 
 DEMO_USERS = [

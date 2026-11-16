@@ -1,3 +1,4 @@
+import difflib
 import json
 import os
 import re
@@ -15,7 +16,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 import exports
+import interview
+import linking
+import llm
 import pipeline
+import quiz
+import security
+import simplepdf
 from db import create_project_share, create_team_account, init_db, log, notify, now, one, query, run, unread_count, user_ids
 from security import SecurityHeaders, hash_password, record_attempt, too_many_attempts, verify_password
 
@@ -34,13 +41,25 @@ async def lifespan(app):
 
 
 app = FastAPI(title="Handover", lifespan=lifespan)
+
+def cookie_is_secure():
+    """Mark the session cookie Secure on https hosts. Render sets RENDER; COOKIE_SECURE=1 forces it on, =0 forces it off."""
+    setting = os.environ.get("COOKIE_SECURE", "").strip().lower()
+    if setting in ("1", "true", "yes"):
+        return True
+    if setting in ("0", "false", "no"):
+        return False
+    return bool(os.environ.get("RENDER"))
+
+
 app.add_middleware(SecurityHeaders)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get("SECRET_KEY") or secrets.token_hex(32),
     session_cookie="handover_session",
-    same_site="lax",
+    same_site="none" if cookie_is_secure() else "lax",
     max_age=8 * 3600,
+    https_only=cookie_is_secure(),
 )
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 templates = Jinja2Templates(directory=BASE / "templates")
@@ -82,10 +101,15 @@ async def csrf_check(request: Request, csrf: str = Form("")):
         raise HTTPException(403, "This form expired. Go back, refresh the page and try again.")
 
 
+LEAVER_PATHS = ("/interview", "/logout", "/help", "/data-use", "/workspace", "/notifications")
+
+
 def login_required(request: Request):
     user = current_user(request)
     if not user:
         raise HTTPException(303, headers={"Location": "/login"})
+    if user["role"] == "leaver" and not request.url.path.startswith(LEAVER_PATHS):
+        raise HTTPException(403, "A leaver account can only use the interview page.")
     return user
 
 
@@ -288,6 +312,8 @@ def login(request: Request, username: str = Form(""), password: str = Form("")):
     user = None if too_many_attempts(key) else one("SELECT * FROM users WHERE username = ?", (username.strip().lower(),))
     if not user or not verify_password(password, user["password_hash"]):
         record_attempt(key)
+        if len(security.attempts[key]) == 5:
+            notify(user_ids("reviewer"), f"Security finding: five failed sign-ins in a minute for \u201c{username.strip()[:30]}\u201d.", "/activity")
         log(username[:40], "login failed")
         flash(request, "That username or password is not right. After five tries you must wait a minute.", "error")
         return RedirectResponse("/login", 303)
@@ -326,6 +352,8 @@ def logout(request: Request):
 
 @app.get("/workspace")
 def workspace(request: Request, user=Depends(login_required)):
+    if user["role"] == "leaver":
+        return RedirectResponse("/interview", 303)
     if user["role"] == "reviewer":
         projects = query(
             "SELECT p.*, (SELECT COUNT(*) FROM claims WHERE project_id = p.id) AS claims,"
@@ -753,8 +781,22 @@ def overview(request: Request, project_id: int, user=Depends(reviewer_required))
         "SELECT grade, COUNT(*) AS n FROM claims WHERE project_id = ? GROUP BY grade", (project_id,))}
     total = max(sum(counts.values()), 1)
     bars = [(grade, counts[grade], round(counts[grade] * 100 / total)) for grade in GRADE_ORDER if grade in counts]
+    kinds = {row["type"]: row["n"] for row in query(
+        "SELECT type, COUNT(*) AS n FROM claims WHERE project_id = ? AND status != 'rejected' GROUP BY type", (project_id,))}
+    kind_total = max(sum(kinds.values()), 1)
+    kind_bars = [(pipeline.TYPE_LABELS.get(kind, kind), n, round(n * 100 / kind_total)) for kind, n in sorted(kinds.items(), key=lambda item: -item[1])]
+    open_counts = [
+        ("Waiting for a decision", one("SELECT COUNT(*) AS n FROM claims WHERE project_id = ? AND status = 'proposed'", (project_id,))["n"]),
+        ("Gaps nobody has answered", one("SELECT COUNT(*) AS n FROM claims WHERE project_id = ? AND status != 'rejected' AND (grade = 'Unknown' OR "
+                                         "(type = 'open_question' AND instr(statement, 'Answer:') = 0))", (project_id,))["n"]),
+        ("Sources disagree", one("SELECT COUNT(*) AS n FROM claims WHERE project_id = ? AND status != 'rejected' AND grade = 'Conflicting'", (project_id,))["n"]),
+        ("Risks and blockers", one("SELECT COUNT(*) AS n FROM claims WHERE project_id = ? AND status != 'rejected' AND type IN ('risk', 'blocker')", (project_id,))["n"]),
+    ]
+    open_total = max(max(n for _, n in open_counts), 1)
+    open_bars = [(label, n, round(n * 100 / open_total)) for label, n in open_counts]
     return project_page(request, "project.html", project_id, "overview", bars=bars,
-                        categories=pipeline.PROJECT_CATEGORIES)
+                        categories=pipeline.PROJECT_CATEGORIES, kind_bars=kind_bars, open_bars=open_bars,
+                        link_flag_count=len(linking.checks(project_id)))
 
 
 @app.post("/project/{project_id}/opportunities", dependencies=[Depends(csrf_check)])
@@ -804,6 +846,11 @@ async def upload(request: Request, project_id: int, source_type: str = Form("not
         message = f"{filename} {'added' if stale is None else 'replaced'}. {masked} sensitive item(s) were hidden."
         if stale:
             message += f" {stale} earlier claim(s) no longer match the file and need another look."
+            who = set(user_ids("reviewer"))
+            assigned = active_assignment(project_id)
+            if assigned:
+                who.add(assigned["user_id"])
+            notify(sorted(who), f"Source changed: {filename} was replaced and {stale} claim(s) were reopened for review.", f"/project/{project_id}/review")
         flash(request, message)
     return RedirectResponse(f"/project/{project_id}/connect", 303)
 
@@ -811,9 +858,12 @@ async def upload(request: Request, project_id: int, source_type: str = Form("not
 @app.post("/project/{project_id}/analyse", dependencies=[Depends(csrf_check)])
 def analyse(request: Request, project_id: int, user=Depends(reviewer_required)):
     project_or_404(project_id)
+    failures = llm.STATE["failures"]
     found = pipeline.analyse(project_id, user["display_name"])
     log(user["display_name"], "analysed files", f"{found} claims")
     flash(request, f"Found {found} claims. Check each one before it is shared.")
+    if llm.STATE["failures"] > failures:
+        flash(request, "The AI helper gave an unusable reply twice, so the built-in rules were used for those files instead.", "error")
     return RedirectResponse(f"/project/{project_id}/review", 303)
 
 
@@ -828,14 +878,24 @@ def review(request: Request, project_id: int, tab: str = "attention", user=Depen
         " WHEN 'Testimony' THEN 3 ELSE 4 END, c.id",
         (project_id, TABS[tab], TABS[tab]),
     )
-    return project_page(request, "review.html", project_id, "review", claims=claims, tab=tab)
+    return project_page(request, "review.html", project_id, "review", claims=claims, tab=tab,
+                        link_flags=linking.checks(project_id))
+
+
+def mark_approved(claim, user, note=None):
+    """Approve a claim and record who did it. A claim is self-approved when the approver also wrote it, or on a solo project."""
+    project = one("SELECT solo FROM projects WHERE id = ?", (claim["project_id"],))
+    own = bool(claim["authored_by"]) and claim["authored_by"] == user["username"]
+    flag = int(bool(project and project["solo"]) or own)
+    run("UPDATE claims SET status = 'approved', note = ?, approved_by = ?, self_approved = ?, updated_at = ? WHERE id = ?",
+        (claim["note"] if note is None else note, user["username"], flag, now(), claim["id"]))
 
 
 @app.post("/project/{project_id}/approve-backed", dependencies=[Depends(csrf_check)])
 def approve_backed(request: Request, project_id: int, user=Depends(reviewer_required)):
-    rows = query("SELECT id FROM claims WHERE project_id = ? AND status = 'proposed' AND grade = 'Backed'", (project_id,))
+    rows = query("SELECT * FROM claims WHERE project_id = ? AND status = 'proposed' AND grade = 'Backed'", (project_id,))
     for row in rows:
-        run("UPDATE claims SET status = 'approved', updated_at = ? WHERE id = ?", (now(), row["id"]))
+        mark_approved(row, user)
         pipeline.add_version(row["id"], "approved", user["display_name"])
     log(user["display_name"], "approved all backed claims", f"{len(rows)} claims")
     flash(request, f"{len(rows)} backed claims approved.")
@@ -859,7 +919,7 @@ def approve(request: Request, claim_id: int, reason: str = Form(""), tab: str = 
             flash(request, "Say which source you trust before approving a claim that conflicts with another.", "error")
             return back_to_review(claim, tab)
         note = f"{claim['note']} Reviewer decision: {reason.strip()[:200]}"
-    run("UPDATE claims SET status = 'approved', note = ?, updated_at = ? WHERE id = ?", (note, now(), claim_id))
+    mark_approved(claim, user, note)
     pipeline.add_version(claim_id, "approved", user["display_name"])
     log(user["display_name"], "approved claim", f"#{claim_id}")
     flash(request, "Claim approved.")
@@ -885,8 +945,8 @@ def edit(request: Request, claim_id: int, statement: str = Form(""), quote: str 
         flash(request, "The statement cannot be empty.", "error")
         return back_to_review(claim, tab)
     grade = pipeline.regrade(claim, quote)
-    run("UPDATE claims SET statement = ?, quote = ?, grade = ?, status = 'proposed', updated_at = ? WHERE id = ?",
-        (statement, quote, grade, now(), claim_id))
+    run("UPDATE claims SET statement = ?, quote = ?, grade = ?, status = 'proposed', approved_by = '', self_approved = 0, "
+        "updated_at = ? WHERE id = ?", (statement, quote, grade, now(), claim_id))
     pipeline.add_version(claim_id, "edited", user["display_name"])
     log(user["display_name"], "edited claim", f"#{claim_id}")
     flash(request, f"Claim updated and checked again. It is now {grade}.")
@@ -901,8 +961,8 @@ def answer(request: Request, claim_id: int, text: str = Form(""), who: str = For
         flash(request, "Only missing information and open questions can be answered, and the answer cannot be empty.", "error")
         return back_to_review(claim, tab)
     statement = f"{pipeline.question_for(claim)} Answer: {text.strip()[:400]} (stated by {who.strip()[:60] or 'the person leaving'})"
-    run("UPDATE claims SET statement = ?, quote = '', grade = 'Testimony', status = 'proposed', updated_at = ? WHERE id = ?",
-        (statement, now(), claim_id))
+    run("UPDATE claims SET statement = ?, quote = '', grade = 'Testimony', status = 'proposed', authored_by = ?, "
+        "approved_by = '', self_approved = 0, updated_at = ? WHERE id = ?", (statement, user["username"], now(), claim_id))
     pipeline.add_version(claim_id, "answered", user["display_name"])
     log(user["display_name"], "recorded an answer", f"#{claim_id}")
     flash(request, "Answer saved as testimony. Approve it when you are happy with it.")
@@ -971,7 +1031,11 @@ def share_page(request: Request, project_id: int, user=Depends(reviewer_required
     return project_page(request, "share.html", project_id, "share", shares=shares, successors=successors,
                         sent_back=sent_back, assignments=assignments, current=now(), readiness=rehearsal["score"],
                         readiness_ready=not blockers, readiness_blockers=blockers,
-                        assignment_locked=assignment_locked, current_assignment=ownership)
+                        assignment_locked=assignment_locked, current_assignment=ownership,
+                        views=query("SELECT v.*, u.display_name FROM plan_views v JOIN users u ON u.id = v.user_id "
+                                    "WHERE v.project_id = ? ORDER BY v.id DESC LIMIT 15", (project_id,)),
+                        view_total=one("SELECT COUNT(*) AS n FROM plan_views WHERE project_id = ?", (project_id,))["n"],
+                        check_report=quiz.reviewer_report(project_id))
 
 
 @app.post("/project/{project_id}/share", dependencies=[Depends(csrf_check)])
@@ -1017,6 +1081,20 @@ def revoke(request: Request, share_id: int, user=Depends(reviewer_required)):
     return RedirectResponse(f"/project/{share['project_id']}/share", 303)
 
 
+def record_view(user, project_id, page):
+    """Log each time an assigned successor opens a page of their shared plan (at most once a minute per page)."""
+    if user["role"] != "successor":
+        return
+    share = active_share(project_id, user["id"])
+    if not share:
+        return
+    recent = one("SELECT id FROM plan_views WHERE share_id = ? AND page = ? AND at > datetime(?, '-60 seconds')",
+                 (share["id"], page, now()))
+    if not recent:
+        run("INSERT INTO plan_views(share_id, project_id, user_id, page, at) VALUES (?, ?, ?, ?, ?)",
+            (share["id"], project_id, user["id"], page, now()))
+
+
 def visible_plan(request, user, project_id):
     if user["role"] == "reviewer":
         previewing = request.query_params.get("preview") == "successor"
@@ -1031,14 +1109,20 @@ def plan(request: Request, project_id: int, user=Depends(login_required)):
     clearance, share, previewing = visible_plan(request, user, project_id)
     sections = pipeline.plan_sections(project_id, clearance) if clearance is not None else None
     recurring = pipeline.recurring_problems(project_id, clearance, approved_only=True) if clearance is not None else []
+    record_view(user, project_id, "plan")
     context = dict(project=project, sections=sections, share=share, previewing=previewing, step="plan", tracker=None,
-                   recurring=recurring, members=[], submission=None, action_total=0, action_done=0)
+                   recurring=recurring, members=[], submission=None, action_total=0, action_done=0,
+                   section_state={}, all_acked=True, ack_done=0, ack_total=0)
     if user["role"] == "reviewer":
         return render(request, "plan.html", stats=stats(project_id), **context)
     if share:
         context["tracker"] = {
             row["claim_id"]: row for row in query("SELECT * FROM tracker WHERE share_id = ?", (share["id"],))
         }
+        if user["role"] == "successor":
+            all_acked, statuses = quiz.all_acknowledged(share["id"], project_id, user["clearance"])
+            context.update(section_state={item["title"]: item for item in statuses}, all_acked=all_acked,
+                           ack_done=sum(1 for item in statuses if item["state"] == "done"), ack_total=len(statuses))
         context["submission"] = one("SELECT * FROM successor_submissions WHERE share_id = ?", (share["id"],))
         context["action_total"] = one(
             "SELECT COUNT(*) AS n FROM claims WHERE project_id = ? AND type = 'next_action' "
@@ -1059,6 +1143,10 @@ def acknowledge(request: Request, project_id: int, user=Depends(login_required))
     share = active_share(project_id, user["id"])
     if not share:
         raise HTTPException(403, "No plan is shared with you.")
+    done, statuses = quiz.all_acknowledged(share["id"], project_id, user["clearance"])
+    if not done:
+        flash(request, "Check and acknowledge every section first. Each section has a short check under its heading.", "error")
+        return RedirectResponse(f"/project/{project_id}/plan", 303)
     run("UPDATE shares SET acknowledged_at = ? WHERE id = ?", (now(), share["id"]))
     log(user["display_name"], "acknowledged the plan", f"project #{project_id}")
     notify(user_ids("reviewer"), f"{user['display_name']} confirmed they have read the plan.", f"/project/{project_id}/share")
@@ -1071,9 +1159,11 @@ def export_rows(request, user, project_id):
     clearance, _, _ = visible_plan(request, user, project_id)
     if clearance is None:
         raise HTTPException(403, "No plan is shared with you.")
+    record_view(user, project_id, "export")
     return [
         {"type": item["type"], "statement": item["statement"], "grade": item["grade"], "quote": item["quote"],
-         "source": item["filename"], "note": item["note"], "section": title}
+         "source": item["filename"], "note": item["note"], "approval": "self-approved" if item["self_approved"] else "independent",
+         "section": title}
         for title, items in pipeline.plan_sections(project_id, clearance) for item in items
     ]
 
@@ -1115,6 +1205,7 @@ def timeline(request: Request, project_id: int, user=Depends(login_required)):
     project = project_or_404(project_id)
     clearance, _, previewing = visible_plan(request, user, project_id)
     entries = pipeline.timeline(project_id, clearance) if clearance is not None else None
+    record_view(user, project_id, "timeline")
     info = stats(project_id) if user["role"] == "reviewer" else None
     return render(request, "timeline.html", project=project, entries=entries, previewing=previewing, stats=info, step="plan")
 
@@ -1138,12 +1229,38 @@ def search(request: Request, project_id: int, q: str = "", user=Depends(login_re
     if clearance is None:
         raise HTTPException(403, "No plan is shared with you.")
     reviewer = user["role"] == "reviewer"
+    record_view(user, project_id, "search")
     results = None
     if len(q.strip()) >= 2:
         results = pipeline.search_claims(project_id, q, clearance, approved_only=previewing or not reviewer)
     info = stats(project_id) if reviewer else None
     return render(request, "search.html", project=project, results=results, query_text=q.strip()[:100], stats=info,
                   step="review", reviewer=reviewer)
+
+
+DIFF_FIELDS = (("statement", "Statement"), ("quote", "Quote"), ("grade", "Grade"), ("status", "Status"), ("note", "Note"))
+
+
+def word_diff(old, new):
+    """Word-level differences as (operation, text) pairs: keep, del or ins."""
+    before, after = (old or "").split(), (new or "").split()
+    parts = []
+    for tag, a1, a2, b1, b2 in difflib.SequenceMatcher(None, before, after, autojunk=False).get_opcodes():
+        if tag == "equal":
+            parts.append(("keep", " ".join(before[a1:a2])))
+            continue
+        if a2 > a1:
+            parts.append(("del", " ".join(before[a1:a2])))
+        if b2 > b1:
+            parts.append(("ins", " ".join(after[b1:b2])))
+    return parts
+
+
+def field_diff(older, newer):
+    if older is None:
+        return []
+    return [{"label": label, "parts": word_diff(older.get(key, ""), newer.get(key, ""))}
+            for key, label in DIFF_FIELDS if (older.get(key, "") or "") != (newer.get(key, "") or "")]
 
 
 @app.get("/claim/{claim_id}/history")
@@ -1153,6 +1270,9 @@ def history(request: Request, claim_id: int, user=Depends(reviewer_required)):
         dict(row) | json.loads(row["snapshot"])
         for row in query("SELECT * FROM claim_versions WHERE claim_id = ? ORDER BY id DESC", (claim_id,))
     ]
+    for index, version in enumerate(versions):
+        older = versions[index + 1] if index + 1 < len(versions) else None
+        version["diff"] = field_diff(older, version)
     return render(request, "history.html", claim=claim, versions=versions)
 
 
@@ -1268,3 +1388,271 @@ def notifications(request: Request, user=Depends(login_required)):
 def mark_read(request: Request, user=Depends(login_required)):
     run("UPDATE notifications SET is_read = 1 WHERE user_id = ?", (user["id"],))
     return RedirectResponse("/notifications", 303)
+
+
+# ======================================================================================================
+# Round 3: data-use notice, one-click demo, Leaver Interview Mode, Project State, Comprehension Check, PDF
+# ======================================================================================================
+
+@app.get("/data-use")
+def data_use(request: Request):
+    return render(request, "data_use.html", ai_enabled=llm.enabled(), secure_cookie=cookie_is_secure())
+
+
+DEMO_ACCOUNTS = {"reviewer": "reviewer123", "successor": "successor123"}
+
+
+@app.post("/demo/enter", dependencies=[Depends(csrf_check)])
+def demo_enter(request: Request, role: str = Form("reviewer")):
+    """One-click demo. It only works while the published demo password still matches, so it switches itself off
+    the moment a real deployment changes that password."""
+    if role not in DEMO_ACCOUNTS:
+        raise HTTPException(400, "Choose reviewer or successor.")
+    account = one("SELECT * FROM users WHERE username = ?", (role,))
+    if not account or not verify_password(DEMO_ACCOUNTS[role], account["password_hash"]):
+        flash(request, "The one-click demo is switched off here. Sign in with your own account.", "error")
+        return RedirectResponse("/login", 303)
+    request.session.clear()
+    request.session["uid"] = account["id"]
+    log(account["display_name"], "signed in", "one-click demo")
+    return RedirectResponse("/workspace" if role == "reviewer" else "/opportunities", 303)
+
+
+@app.get("/project/{project_id}/export.pdf")
+def export_pdf(request: Request, project_id: int, user=Depends(login_required)):
+    project = project_or_404(project_id)
+    clearance, _, _ = visible_plan(request, user, project_id)
+    if clearance is None:
+        raise HTTPException(403, "No plan is shared with you.")
+    record_view(user, project_id, "export")
+    blocks = [("meta", f"Handover plan for {project['name']}. Only claims you may see are included. Generated {now()} UTC.")]
+    for title, items in pipeline.plan_sections(project_id, clearance):
+        blocks.append(("heading", title))
+        for item in items:
+            tag = f"[{item['grade']}, source: {item['filename']}" + (", self-approved" if item["self_approved"] else "") + "]"
+            blocks += [("body", f"- {item['statement']}"), ("meta", f"    {tag}")]
+            if item["quote"]:
+                blocks.append(("meta", f"    Quote: {item['quote']}"))
+    data = simplepdf.build(f"{project['name']}: handover plan", blocks)
+    return Response(data, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="handover-plan-{project_id}.pdf"'})
+
+
+# ---- Improvement 1: Leaver Interview Mode ---------------------------------------------------------
+
+def leaver_page(request, project_id, new_login=None):
+    project = project_or_404(project_id)
+    items = interview.queue(project_id)
+    leavers = query("SELECT l.*, u.username, u.display_name FROM leavers l JOIN users u ON u.id = l.user_id "
+                    "WHERE l.project_id = ? ORDER BY l.id", (project_id,))
+    return project_page(request, "interview_manage.html", project_id, "interview", items=items,
+                        cov=interview.coverage(items), leavers=leavers, new_login=new_login)
+
+
+@app.get("/project/{project_id}/interview")
+def interview_manage(request: Request, project_id: int, user=Depends(reviewer_required)):
+    return leaver_page(request, project_id)
+
+
+@app.post("/project/{project_id}/leavers", dependencies=[Depends(csrf_check)])
+def create_leaver(request: Request, project_id: int, display_name: str = Form(""), username: str = Form(""),
+                  password: str = Form(""), user=Depends(reviewer_required)):
+    project_or_404(project_id)
+    username, display_name = username.strip().lower(), " ".join(display_name.split())[:60]
+    generated = not password
+    password = password or secrets.token_urlsafe(12)
+    if not display_name or not interview.valid_username(username) or len(password) < 12:
+        flash(request, "Give the leaver a name, a username of 3 to 30 letters, numbers, dots or dashes, and a password of at least 12 characters.", "error")
+        return RedirectResponse(f"/project/{project_id}/interview", 303)
+    if one("SELECT 1 FROM users WHERE username = ?", (username,)):
+        flash(request, "That username is already taken.", "error")
+        return RedirectResponse(f"/project/{project_id}/interview", 303)
+    user_id = run("INSERT INTO users(username, password_hash, display_name, role, clearance, job_title, team_id, tour_choice) "
+                  "VALUES (?, ?, ?, 'leaver', 0, 'Person leaving', NULL, 'dismissed')",
+                  (username, hash_password(password), display_name))
+    run("INSERT INTO leavers(user_id, project_id, created_by, created_at) VALUES (?, ?, ?, ?)",
+        (user_id, project_id, user["username"], now()))
+    log(user["display_name"], "created a leaver login", f"project #{project_id}")
+    return leaver_page(request, project_id, new_login={"username": username, "password": password, "name": display_name})
+
+
+@app.post("/leavers/{leaver_id}/revoke", dependencies=[Depends(csrf_check)])
+def revoke_leaver(request: Request, leaver_id: int, user=Depends(reviewer_required)):
+    row = one("SELECT * FROM leavers WHERE id = ?", (leaver_id,))
+    if not row:
+        raise HTTPException(404, "That leaver login does not exist.")
+    run("UPDATE leavers SET revoked = 1 WHERE id = ?", (leaver_id,))
+    log(user["display_name"], "revoked a leaver login", f"project #{row['project_id']}")
+    flash(request, "Leaver login revoked.")
+    return RedirectResponse(f"/project/{row['project_id']}/interview", 303)
+
+
+@app.post("/project/{project_id}/solo", dependencies=[Depends(csrf_check)])
+def set_solo(request: Request, project_id: int, solo: bool = Form(False), user=Depends(reviewer_required)):
+    project_or_404(project_id)
+    run("UPDATE projects SET solo = ? WHERE id = ?", (int(solo), project_id))
+    log(user["display_name"], "set solo handover" if solo else "cleared solo handover", f"project #{project_id}")
+    flash(request, "Solo handover is on: every approval from now on is labelled self-approved." if solo
+          else "Solo handover is off.")
+    return RedirectResponse(f"/project/{project_id}/interview", 303)
+
+
+def leaver_context(user):
+    link = interview.leaver_for_user(user["id"])
+    if user["role"] != "leaver" or not link:
+        raise HTTPException(403, "This page is for the person leaving the project.")
+    return link
+
+
+@app.get("/interview")
+def leaver_interview(request: Request, user=Depends(login_required)):
+    if user["role"] == "reviewer":
+        return RedirectResponse("/workspace", 303)
+    link = leaver_context(user)
+    items = interview.queue(link["project_id"])
+    return render(request, "interview.html", link=link, items=items, cov=interview.coverage(items))
+
+
+@app.post("/interview/answer", dependencies=[Depends(csrf_check)])
+def leaver_answer(request: Request, key: str = Form(""), action: str = Form(""), text: str = Form(""),
+                  who: str = Form(""), user=Depends(login_required)):
+    link = leaver_context(user)
+    ok, message = interview.record(link["project_id"], key, action, text, who, user)
+    if ok:
+        log(user["display_name"], "answered an interview question", f"project #{link['project_id']}")
+        notify(user_ids("reviewer"), f"{user['display_name']} answered an interview question for {link['project_name']}.",
+               f"/project/{link['project_id']}/review")
+    flash(request, message, "ok" if ok else "error")
+    return RedirectResponse("/interview", 303)
+
+
+# ---- Improvement 2: cross-source links and the Project State page -------------------------------
+
+def state_scope(request, user, project_id):
+    """Who sees what: reviewers see every open claim (or the successor's view when previewing); successors see only
+    approved claims at their own clearance."""
+    project = project_or_404(project_id)
+    clearance, share, previewing = visible_plan(request, user, project_id)
+    if clearance is None:
+        raise HTTPException(403, "No plan is shared with you.")
+    approved_only = user["role"] != "reviewer" or previewing
+    return project, clearance, approved_only, previewing
+
+
+@app.get("/project/{project_id}/state")
+def project_state(request: Request, project_id: int, user=Depends(login_required)):
+    project, clearance, approved_only, previewing = state_scope(request, user, project_id)
+    record_view(user, project_id, "project state")
+    reviewer = user["role"] == "reviewer" and not previewing
+    entities = linking.build(project_id, clearance, approved_only)
+    return render(request, "state.html", project=project, entities=entities, step="state", previewing=previewing,
+                  flags=linking.checks(project_id) if reviewer else [], reviewer=reviewer, kind_labels=linking.KIND_LABELS,
+                  aliases=query("SELECT * FROM entity_aliases WHERE project_id = ? ORDER BY kind, canonical", (project_id,)) if reviewer else [],
+                  stats=stats(project_id) if user["role"] == "reviewer" else None)
+
+
+@app.get("/project/{project_id}/entity")
+def project_entity(request: Request, project_id: int, kind: str = "area", name: str = "", user=Depends(login_required)):
+    project, clearance, approved_only, previewing = state_scope(request, user, project_id)
+    entity = linking.find(project_id, clearance, approved_only, kind, name) if kind in linking.KINDS else None
+    if not entity:
+        raise HTTPException(404, "That item is not in this project\u2019s state.")
+    record_view(user, project_id, "project state")
+    return render(request, "entity.html", project=project, entity=entity, step="state", previewing=previewing,
+                  kind_labels=linking.KIND_LABELS, stats=stats(project_id) if user["role"] == "reviewer" else None)
+
+
+@app.post("/project/{project_id}/aliases", dependencies=[Depends(csrf_check)])
+def add_alias(request: Request, project_id: int, kind: str = Form("person"), alias: str = Form(""),
+              canonical: str = Form(""), user=Depends(reviewer_required)):
+    project_or_404(project_id)
+    alias_key, canon = linking._alias_key(kind, alias), linking._alias_key(kind, canonical)
+    if kind not in ("person", "area") or not alias_key or not canon or alias_key == canon:
+        flash(request, "Choose person or work area, and give two different names to merge.", "error")
+        return RedirectResponse(f"/project/{project_id}/state", 303)
+    typed = " ".join(canonical.split())[:80] if kind == "person" else canon
+    run("INSERT OR REPLACE INTO entity_aliases(project_id, kind, alias, canonical, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (project_id, kind, alias_key, typed, user["username"], now()))
+    log(user["display_name"], "merged two names", f"{alias_key} -> {canon}")
+    flash(request, f"\u201c{alias.strip()}\u201d is now treated as \u201c{canonical.strip()}\u201d.")
+    return RedirectResponse(f"/project/{project_id}/state", 303)
+
+
+@app.post("/aliases/{alias_id}/delete", dependencies=[Depends(csrf_check)])
+def delete_alias(request: Request, alias_id: int, user=Depends(reviewer_required)):
+    row = one("SELECT * FROM entity_aliases WHERE id = ?", (alias_id,))
+    if not row:
+        raise HTTPException(404, "That merge does not exist.")
+    run("DELETE FROM entity_aliases WHERE id = ?", (alias_id,))
+    flash(request, "Merge removed.")
+    return RedirectResponse(f"/project/{row['project_id']}/state", 303)
+
+
+# ---- Improvement 3: Comprehension Check -----------------------------------------------------------
+
+def check_context(request, user, project_id, index):
+    project = project_or_404(project_id)
+    if user["role"] != "successor":
+        raise HTTPException(403, "Section checks are for the team the plan was shared with.")
+    share = active_share(project_id, user["id"])
+    if not share:
+        raise HTTPException(403, "No plan is shared with you.")
+    titles = quiz.section_titles()
+    if index < 0 or index >= len(titles):
+        raise HTTPException(404, "That section does not exist.")
+    quiz.ensure_quiz(share["id"], project_id, user["clearance"])
+    return project, share, titles[index]
+
+
+@app.get("/project/{project_id}/check")
+def check_overview(request: Request, project_id: int, user=Depends(login_required)):
+    project = project_or_404(project_id)
+    share = active_share(project_id, user["id"]) if user["role"] == "successor" else None
+    if not share:
+        raise HTTPException(403, "No plan is shared with you.")
+    record_view(user, project_id, "section checks")
+    done, statuses = quiz.all_acknowledged(share["id"], project_id, user["clearance"])
+    return render(request, "check_overview.html", project=project, statuses=statuses, done=done, pass_mark=int(quiz.PASS_MARK * 100))
+
+
+@app.get("/project/{project_id}/check/{index}")
+def check_take(request: Request, project_id: int, index: int, user=Depends(login_required)):
+    project, share, title = check_context(request, user, project_id, index)
+    questions = quiz.questions_for(share["id"], title)
+    if questions:
+        quiz.start_attempt(share["id"], title)
+    return render(request, "check.html", project=project, title=title, index=index, questions=questions, result=None,
+                  can_ack=quiz.can_acknowledge(share["id"], title), pass_mark=int(quiz.PASS_MARK * 100))
+
+
+@app.post("/project/{project_id}/check/{index}", dependencies=[Depends(csrf_check)])
+async def check_submit(request: Request, project_id: int, index: int, user=Depends(login_required)):
+    project, share, title = check_context(request, user, project_id, index)
+    form = await request.form()
+    answers = {}
+    for question in quiz.questions_for(share["id"], title):
+        raw = form.get(f"q{question['id']}")
+        if raw is not None and str(raw).isdigit() and int(raw) < len(question["options"]):
+            answers[question["id"]] = int(raw)
+    result = quiz.submit(share["id"], title, answers)
+    log(user["display_name"], "took a section check", f"{title}: {result['correct']}/{result['total']}")
+    return render(request, "check.html", project=project, title=title, index=index, questions=[], result=result,
+                  can_ack=quiz.can_acknowledge(share["id"], title), pass_mark=int(quiz.PASS_MARK * 100))
+
+
+@app.post("/project/{project_id}/check/{index}/acknowledge", dependencies=[Depends(csrf_check)])
+def check_acknowledge(request: Request, project_id: int, index: int, user=Depends(login_required)):
+    project, share, title = check_context(request, user, project_id, index)
+    if not quiz.can_acknowledge(share["id"], title):
+        flash(request, f"Pass the check for this section first. The pass mark is {int(quiz.PASS_MARK * 100)}%.", "error")
+        return RedirectResponse(f"/project/{project_id}/check/{index}", 303)
+    quiz.acknowledge_section(share["id"], title)
+    log(user["display_name"], "acknowledged a section", title)
+    flash(request, f"Section acknowledged: {title}.")
+    return RedirectResponse(f"/project/{project_id}/plan", 303)
+
+
+@app.get("/project/{project_id}/comprehension")
+def comprehension_report(request: Request, project_id: int, user=Depends(reviewer_required)):
+    return project_page(request, "comprehension.html", project_id, "share", report=quiz.reviewer_report(project_id),
+                        pass_mark=int(quiz.PASS_MARK * 100))
