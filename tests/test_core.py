@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import db
+from conftest import ack_all
 import pipeline
 from app import app
 
@@ -132,6 +133,9 @@ def test_restricted_claims_never_reach_the_successor(clients, demo):
 
 def test_successor_can_acknowledge(clients, demo):
     _, successor = clients
+    successor.post(f"/project/{demo}/acknowledge", data={"csrf": token(successor)})
+    assert not db.one("SELECT acknowledged_at FROM shares WHERE project_id = ?", (demo,))["acknowledged_at"]
+    ack_all(successor, demo)
     successor.post(f"/project/{demo}/acknowledge", data={"csrf": token(successor)})
     assert db.one("SELECT acknowledged_at FROM shares WHERE project_id = ?", (demo,))["acknowledged_at"]
 

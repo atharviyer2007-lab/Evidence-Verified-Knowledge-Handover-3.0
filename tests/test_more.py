@@ -7,6 +7,7 @@ import pytest
 from docx import Document
 
 import db
+from conftest import ack_all
 import exports
 import pipeline
 from test_core import claims_where, token
@@ -222,6 +223,7 @@ def test_notifications_reach_the_right_people(clients):
     share(reviewer, pid)
     assert unread(successor) == before_successor + 1
     assert unread(reviewer) == before_reviewer
+    ack_all(successor, pid)
     successor.post(f"/project/{pid}/acknowledge", data={"csrf": token(successor)})
     assert unread(reviewer) == before_reviewer + 1
     page = successor.get("/notifications").text
@@ -269,7 +271,8 @@ def test_xml_and_word_exports_survive_awkward_text():
     Document(io.BytesIO(exports.to_docx([row], "Title\x0b")))
 
 
-def test_json_download_keeps_its_original_shape(clients, shared_demo):
+def test_json_download_keeps_its_shape_and_adds_how_each_claim_was_approved(clients, shared_demo):
     reviewer, _ = clients
     first = reviewer.get(f"/project/{shared_demo}/export.json").json()[0]
-    assert set(first) == {"type", "statement", "grade", "quote", "source", "note"}
+    assert set(first) == {"type", "statement", "grade", "quote", "source", "note", "approval"}
+    assert first["approval"] in ("independent", "self-approved")
