@@ -1,6 +1,81 @@
 {
-  "expected_gaps": ["Event budget report", "free hosting plan", "weekly reminder schedule"],
-  "expected_conflicts": ["deploy pipeline"],
-  "restricted": ["vendor contract", "sponsorship", "Vikram"],
-  "secrets": ["Sunrise#2026", "finance.lead@college.example", "98765 43210"]
+  "expected_gaps": [
+    "Event budget report",
+    "free hosting plan",
+    "weekly reminder schedule"
+  ],
+  "expected_conflicts": [
+    "deploy pipeline"
+  ],
+  "restricted": [
+    "vendor contract",
+    "sponsorship",
+    "Vikram"
+  ],
+  "secrets": [
+    "Sunrise#2026",
+    "finance.lead@college.example",
+    "98765 43210"
+  ],
+  "expected_links": [
+    {
+      "kind": "area",
+      "name": "deploy pipeline",
+      "files": [
+        "chat_export.json",
+        "overview.md",
+        "task_board.csv"
+      ]
+    },
+    {
+      "kind": "area",
+      "name": "payment gateway",
+      "files": [
+        "task_board.csv",
+        "team_notes.md"
+      ]
+    },
+    {
+      "kind": "area",
+      "name": "reminder emails",
+      "files": [
+        "task_board.csv",
+        "team_notes.md"
+      ]
+    },
+    {
+      "kind": "person",
+      "name": "Rahul",
+      "files": [
+        "chat_export.json",
+        "task_board.csv",
+        "team_notes.md"
+      ]
+    },
+    {
+      "kind": "person",
+      "name": "Meera",
+      "files": [
+        "chat_export.json",
+        "task_board.csv",
+        "team_notes.md"
+      ]
+    },
+    {
+      "kind": "person",
+      "name": "Anita",
+      "files": [
+        "task_board.csv",
+        "team_notes.md"
+      ]
+    },
+    {
+      "kind": "person",
+      "name": "Priya",
+      "files": [
+        "chat_export.json",
+        "overview.md"
+      ]
+    }
+  ]
 }
