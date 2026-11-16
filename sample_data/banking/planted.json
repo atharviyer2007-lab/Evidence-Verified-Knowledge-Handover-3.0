@@ -1,1 +1,19 @@
-{"expected_gaps": ["Test repeated-file protection"], "expected_conflicts": [], "restricted": [], "secrets": []}
+{
+  "expected_gaps": [
+    "Test repeated-file protection"
+  ],
+  "expected_conflicts": [],
+  "restricted": [],
+  "secrets": [],
+  "expected_links": [
+    {
+      "kind": "person",
+      "name": "Mina",
+      "files": [
+        "overview.md",
+        "reconciliation_notes.md",
+        "tasks.csv"
+      ]
+    }
+  ]
+}
